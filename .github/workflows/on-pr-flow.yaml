@@ -128,7 +128,11 @@ jobs:
       - name: Validate with kubeconform
         working-directory: ${{ inputs.chart_path }}
         run: |
-          helm template . | kubeconform -strict -summary
+          helm template . | kubeconform \
+            -strict \
+            -summary \
+            -schema-location default \
+            -schema-location "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
 
       - name: Run helm unittest
         working-directory: ${{ inputs.chart_path }}
