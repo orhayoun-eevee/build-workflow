@@ -4,6 +4,13 @@ on:
   push:
     branches:
       - main
+  workflow_call:
+    inputs:
+      chart_path:
+        description: 'Path to the helm chart directory'
+        required: false
+        type: string
+        default: '.'
 
 permissions:
   contents: read
@@ -44,15 +51,26 @@ jobs:
           cluster_name: test-cluster
           wait: 300s
 
+      # Set chart path (defaults to '.' if not provided)
+      - name: Set chart path
+        id: chart_path
+        run: |
+          CHART_PATH="${{ inputs.chart_path }}"
+          if [ -z "$CHART_PATH" ]; then
+            CHART_PATH="."
+          fi
+          echo "path=${CHART_PATH}" >> $GITHUB_OUTPUT
+          echo "Using chart path: ${CHART_PATH}"
+
       # Update Helm chart dependencies
       - name: Update Helm dependencies
-        working-directory: ./chart
+        working-directory: ${{ steps.chart_path.outputs.path }}
         run: |
           helm dependency update
 
       # Install the chart into a test namespace
       - name: Install chart to test namespace
-        working-directory: ./chart
+        working-directory: ${{ steps.chart_path.outputs.path }}
         run: |
           kubectl create namespace test-ns || true
           helm install myapp . \
@@ -70,13 +88,13 @@ jobs:
 
       # Run Helm test suite
       - name: Run helm test
-        working-directory: ./chart
+        working-directory: ${{ steps.chart_path.outputs.path }}
         run: |
           helm test myapp --namespace test-ns
 
       # Upgrade test: Install previous version and upgrade to current
       - name: Upgrade test - Install previous version
-        working-directory: ./chart
+        working-directory: ${{ steps.chart_path.outputs.path }}
         env:
           # CONFIGURATION: Set these in GitHub repository Settings > Secrets and variables > Actions > Variables
           # HELM_REPO_URL: URL of your Helm repository (e.g., https://charts.example.com or oci://ghcr.io/owner)
@@ -129,7 +147,7 @@ jobs:
 
       # Upgrade to current chart version
       - name: Upgrade test - Upgrade to current version
-        working-directory: ./chart
+        working-directory: ${{ steps.chart_path.outputs.path }}
         env:
           PREVIOUS_CHART_VERSION: ${{ vars.PREVIOUS_CHART_VERSION }}
         run: |
@@ -215,6 +233,17 @@ jobs:
           sudo chmod +x /usr/local/bin/yq
           yq --version
 
+      # Set chart path (defaults to '.' if not provided)
+      - name: Set chart path
+        id: chart_path
+        run: |
+          CHART_PATH="${{ inputs.chart_path }}"
+          if [ -z "$CHART_PATH" ]; then
+            CHART_PATH="."
+          fi
+          echo "path=${CHART_PATH}" >> $GITHUB_OUTPUT
+          echo "Using chart path: ${CHART_PATH}"
+
       # Login to GitHub Container Registry
       - name: Login to registry
         run: |
@@ -225,7 +254,7 @@ jobs:
       # Extract chart version and git SHA for tagging
       - name: Extract chart version and git SHA
         id: metadata
-        working-directory: ./chart
+        working-directory: ${{ steps.chart_path.outputs.path }}
         run: |
           CHART_VERSION=$(yq eval '.version' Chart.yaml)
           GIT_SHA=$(git rev-parse --short HEAD)
@@ -239,13 +268,13 @@ jobs:
 
       # Package the Helm chart
       - name: Package Helm chart
-        working-directory: ./chart
+        working-directory: ${{ steps.chart_path.outputs.path }}
         run: |
           helm package . --version ${{ steps.metadata.outputs.full_version }}
 
       # Push the packaged chart to OCI registry
       - name: Push chart to OCI registry
-        working-directory: ./chart
+        working-directory: ${{ steps.chart_path.outputs.path }}
         run: |
           CHART_NAME=$(yq eval '.name' Chart.yaml)
           PACKAGE_FILE="${CHART_NAME}-${{ steps.metadata.outputs.full_version }}.tgz"
