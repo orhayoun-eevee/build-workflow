@@ -72,7 +72,7 @@ on:
         description: 'Istio version to install (e.g., 1.20.0)'
         required: false
         type: string
-        default: '1.20.0'
+        default: '1.28.2'
       istio_profile:
         description: 'Istio installation profile (e.g., ambient, minimal, demo, default)'
         required: false
