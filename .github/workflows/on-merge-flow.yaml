@@ -1,0 +1,252 @@
+name: Merge CI/CD Flow
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  integration-test:
+    name: Integration Tests with Kind
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Install Helm for chart operations
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      # Install kubectl for Kubernetes operations
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      # Install yq for YAML parsing
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      # Create a Kind Kubernetes cluster for testing
+      - name: Create Kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: test-cluster
+          wait: 300s
+
+      # Update Helm chart dependencies
+      - name: Update Helm dependencies
+        working-directory: ./chart
+        run: |
+          helm dependency update
+
+      # Install the chart into a test namespace
+      - name: Install chart to test namespace
+        working-directory: ./chart
+        run: |
+          kubectl create namespace test-ns || true
+          helm install myapp . \
+            --namespace test-ns \
+            --wait \
+            --timeout 5m
+
+      # Wait for all pods to become Ready
+      - name: Wait for pods to be Ready
+        run: |
+          kubectl wait --for=condition=Ready pods \
+            --all \
+            --namespace test-ns \
+            --timeout=300s
+
+      # Run Helm test suite
+      - name: Run helm test
+        working-directory: ./chart
+        run: |
+          helm test myapp --namespace test-ns
+
+      # Upgrade test: Install previous version and upgrade to current
+      - name: Upgrade test - Install previous version
+        working-directory: ./chart
+        env:
+          # CONFIGURATION: Set these in GitHub repository Settings > Secrets and variables > Actions > Variables
+          # HELM_REPO_URL: URL of your Helm repository (e.g., https://charts.example.com or oci://ghcr.io/owner)
+          # PREVIOUS_CHART_VERSION: Previous version to install before upgrading (e.g., 1.0.0)
+          # CHART_NAME: Name of the chart in the repo (defaults to chart name from Chart.yaml)
+          HELM_REPO_URL: ${{ vars.HELM_REPO_URL }}
+          PREVIOUS_CHART_VERSION: ${{ vars.PREVIOUS_CHART_VERSION }}
+        run: |
+          # Clean up the initial installation
+          helm uninstall myapp --namespace test-ns || true
+          kubectl delete namespace test-ns || true
+          kubectl create namespace test-ns || true
+          
+          # Get chart name from Chart.yaml
+          CHART_NAME=$(yq eval '.name' Chart.yaml)
+          
+          # Check if upgrade test is configured
+          if [ -z "$HELM_REPO_URL" ] || [ -z "$PREVIOUS_CHART_VERSION" ]; then
+            echo "⚠️  WARNING: Upgrade test skipped - HELM_REPO_URL or PREVIOUS_CHART_VERSION not configured"
+            echo "⚠️  To enable upgrade testing, set these in: Settings > Secrets and variables > Actions > Variables"
+            echo "⚠️  HELM_REPO_URL: Your Helm repository URL (e.g., https://charts.example.com)"
+            echo "⚠️  PREVIOUS_CHART_VERSION: Previous chart version to test upgrade from (e.g., 1.0.0)"
+            echo "⚠️  Installing current chart as fallback for basic functionality test"
+            helm install myapp . \
+              --namespace test-ns \
+              --wait \
+              --timeout 5m
+          else
+            echo "✓ Upgrade test configured: Installing previous version $PREVIOUS_CHART_VERSION from $HELM_REPO_URL"
+            
+            # Add Helm repository
+            helm repo add upgrade-test-repo "$HELM_REPO_URL" || {
+              echo "❌ ERROR: Failed to add Helm repository: $HELM_REPO_URL"
+              exit 1
+            }
+            helm repo update upgrade-test-repo
+            
+            # Install previous version
+            helm install myapp upgrade-test-repo/$CHART_NAME \
+              --version "$PREVIOUS_CHART_VERSION" \
+              --namespace test-ns \
+              --wait \
+              --timeout 5m || {
+              echo "❌ ERROR: Failed to install previous version $PREVIOUS_CHART_VERSION"
+              exit 1
+            }
+            
+            echo "✓ Previous version installed successfully"
+          fi
+
+      # Upgrade to current chart version
+      - name: Upgrade test - Upgrade to current version
+        working-directory: ./chart
+        env:
+          PREVIOUS_CHART_VERSION: ${{ vars.PREVIOUS_CHART_VERSION }}
+        run: |
+          # Only run upgrade if previous version was installed
+          if [ -n "$PREVIOUS_CHART_VERSION" ]; then
+            echo "✓ Upgrading from $PREVIOUS_CHART_VERSION to current version"
+            helm upgrade myapp . \
+              --namespace test-ns \
+              --wait \
+              --timeout 5m \
+              --reuse-values
+            echo "✓ Upgrade completed successfully"
+          else
+            echo "⚠️  Skipping upgrade step (previous version not configured)"
+          fi
+
+      # Verify pods are still Ready after upgrade
+      - name: Wait for pods after upgrade
+        env:
+          PREVIOUS_CHART_VERSION: ${{ vars.PREVIOUS_CHART_VERSION }}
+        run: |
+          # Only wait if upgrade was performed
+          if [ -n "$PREVIOUS_CHART_VERSION" ]; then
+            kubectl wait --for=condition=Ready pods \
+              --all \
+              --namespace test-ns \
+              --timeout=300s
+          else
+            echo "⚠️  Skipping pod wait (upgrade test not configured)"
+          fi
+
+      # Debug information on failure
+      - name: Debug - Get pods status
+        if: failure()
+        run: |
+          echo "=== Pod Status ==="
+          kubectl get pods -n test-ns -o wide
+
+      - name: Debug - Describe pods
+        if: failure()
+        run: |
+          echo "=== Pod Details ==="
+          kubectl get pods -n test-ns -o name | xargs -I {} kubectl describe {} -n test-ns
+
+      - name: Debug - Get events
+        if: failure()
+        run: |
+          echo "=== Events ==="
+          kubectl get events -n test-ns --sort-by='.lastTimestamp'
+
+      - name: Debug - Helm release status
+        if: failure()
+        run: |
+          echo "=== Helm Release Status ==="
+          helm status myapp --namespace test-ns || true
+          helm history myapp --namespace test-ns || true
+
+      - name: Debug - Get all resources
+        if: failure()
+        run: |
+          echo "=== All Resources in Namespace ==="
+          kubectl get all -n test-ns
+
+  publish:
+    name: Publish Helm Chart to OCI
+    needs: integration-test
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Install Helm for packaging and pushing
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'latest'
+
+      # Install yq for YAML parsing
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      # Login to GitHub Container Registry
+      - name: Login to registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io \
+            --username ${{ github.repository_owner }} \
+            --password-stdin
+
+      # Extract chart version and git SHA for tagging
+      - name: Extract chart version and git SHA
+        id: metadata
+        working-directory: ./chart
+        run: |
+          CHART_VERSION=$(yq eval '.version' Chart.yaml)
+          GIT_SHA=$(git rev-parse --short HEAD)
+          FULL_VERSION="${CHART_VERSION}-${GIT_SHA}"
+          echo "chart_version=${CHART_VERSION}" >> $GITHUB_OUTPUT
+          echo "git_sha=${GIT_SHA}" >> $GITHUB_OUTPUT
+          echo "full_version=${FULL_VERSION}" >> $GITHUB_OUTPUT
+          echo "Chart version: ${CHART_VERSION}"
+          echo "Git SHA: ${GIT_SHA}"
+          echo "Full version: ${FULL_VERSION}"
+
+      # Package the Helm chart
+      - name: Package Helm chart
+        working-directory: ./chart
+        run: |
+          helm package . --version ${{ steps.metadata.outputs.full_version }}
+
+      # Push the packaged chart to OCI registry
+      - name: Push chart to OCI registry
+        working-directory: ./chart
+        run: |
+          CHART_NAME=$(yq eval '.name' Chart.yaml)
+          PACKAGE_FILE="${CHART_NAME}-${{ steps.metadata.outputs.full_version }}.tgz"
+          helm push ${PACKAGE_FILE} oci://ghcr.io/${{ github.repository_owner }}
