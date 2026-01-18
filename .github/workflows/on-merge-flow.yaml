@@ -195,14 +195,53 @@ jobs:
             --wait \
             --timeout 10m
           
-          # Wait for Longhorn pods to be ready
-          echo "Waiting for Longhorn to be ready..."
+          # Wait for all Longhorn pods to be ready
+          echo "Waiting for all Longhorn components to be ready..."
+          
+          # Wait for Longhorn manager pods
+          echo "Waiting for Longhorn manager pods..."
           kubectl wait --for=condition=ready pod \
             -l app=longhorn-manager \
             -n longhorn-system \
+            --timeout=300s
+          
+          # Wait for Longhorn UI pod
+          echo "Waiting for Longhorn UI pod..."
+          kubectl wait --for=condition=ready pod \
+            -l app=longhorn-ui \
+            -n longhorn-system \
             --timeout=300s || true
           
-          echo "✓ Longhorn ${LONGHORN_CHART_VERSION} installed successfully"
+          # Wait for Longhorn storage class to be available
+          echo "Waiting for Longhorn storage class..."
+          for i in {1..30}; do
+            if kubectl get storageclass longhorn &>/dev/null; then
+              echo "✓ Longhorn storage class is available"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "⚠ Longhorn storage class not found after 30 attempts"
+            else
+              echo "Waiting for storage class... (attempt $i/30)"
+              sleep 2
+            fi
+          done
+          
+          # Verify Longhorn system is operational
+          echo "Verifying Longhorn system status..."
+          # Check that manager pods are running
+          MANAGER_READY=$(kubectl get pods -n longhorn-system -l app=longhorn-manager --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)
+          if [ "$MANAGER_READY" -gt 0 ]; then
+            echo "✓ Longhorn manager is running ($MANAGER_READY pod(s))"
+          else
+            echo "⚠ No Longhorn manager pods in Running state"
+          fi
+          
+          # Wait a bit more for Longhorn to fully initialize
+          echo "Allowing Longhorn to fully initialize..."
+          sleep 10
+          
+          echo "✓ Longhorn ${LONGHORN_CHART_VERSION} installed and ready"
 
       # Install Prometheus (if enabled)
       # Installs full Prometheus Operator stack with CRDs, operator, and Prometheus
