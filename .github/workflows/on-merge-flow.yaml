@@ -5,17 +5,20 @@ name: Merge CI/CD Flow
 # Configuration Options:
 # - chart_path: Path to the Helm chart directory (default: '.')
 # - install_istio: Install full Istio service mesh (default: false)
+#   - Installs Istio with CRDs, control plane, and all components
 #   - Enables UI access, service mesh routing, and sidecar injection
 #   - Setup time: ~3-4 minutes
 # - install_prometheus: Install Prometheus Operator/Prometheus (default: false)
+#   - Installs Prometheus Operator stack with CRDs, operator, and Prometheus
 #   - Enables metrics collection and ServiceMonitor/PodMonitor functionality
 #   - Setup time: ~2-3 minutes
 #
 # Example Configurations:
-# 1. Fast validation (CRDs only):
+# 1. Basic testing (no external services):
 #    install_istio: false
 #    install_prometheus: false
 #    Runtime: ~5 minutes
+#    Note: Charts using Istio/Prometheus CRDs will fail unless services are installed
 #
 # 2. Service mesh testing:
 #    install_istio: true
@@ -32,7 +35,7 @@ name: Merge CI/CD Flow
 #    install_prometheus: true
 #    Runtime: ~12-15 minutes
 #
-# Note: CRDs are always installed to allow chart installation, even if services are not installed.
+# Note: Services install their own CRDs when deployed. Install the services your chart requires.
 
 on:
   push:
@@ -95,38 +98,9 @@ jobs:
           cluster_name: test-cluster
           wait: 300s
 
-      # Install required CRDs for external dependencies (Istio, Prometheus)
-      # This step always runs to allow charts to install successfully
-      # CRDs are installed without the full services for fast validation
-      - name: Install required CRDs
-        run: |
-          echo "Installing minimal CRDs for Istio and Prometheus..."
-          
-          # Install Istio CRDs (VirtualService, Gateway, etc.)
-          ISTIO_VERSION="1.20.0"
-          echo "Downloading Istio CRDs (version ${ISTIO_VERSION})..."
-          curl -L https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux-amd64.tar.gz | tar -xz
-          kubectl apply -f istio-${ISTIO_VERSION}/manifests/charts/base/crds/ --server-side || true
-          
-          # Install Prometheus Operator CRDs (ServiceMonitor, PodMonitor, PrometheusRule)
-          PROM_OP_VERSION="0.69.1"
-          echo "Downloading Prometheus Operator CRDs (version ${PROM_OP_VERSION})..."
-          curl -L https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v${PROM_OP_VERSION}/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml | kubectl apply -f - --server-side || true
-          curl -L https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v${PROM_OP_VERSION}/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml | kubectl apply -f - --server-side || true
-          curl -L https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v${PROM_OP_VERSION}/example/prometheus-operator-crd/monitoring.coreos.com_prometheusrules.yaml | kubectl apply -f - --server-side || true
-          
-          echo "Waiting for CRDs to be established..."
-          kubectl wait --for condition=established --timeout=60s \
-            crd/virtualservices.networking.istio.io \
-            crd/gateways.networking.istio.io \
-            crd/servicemonitors.monitoring.coreos.com \
-            crd/podmonitors.monitoring.coreos.com \
-            crd/prometheusrules.monitoring.coreos.com || true
-          
-          echo "✓ CRDs installed successfully"
-
       # Install Istio service mesh (if enabled)
-      # Enables full service mesh functionality, UI access, and routing
+      # Installs full Istio with CRDs, control plane, and enables service mesh functionality
+      # Enables UI access, routing, and sidecar injection
       # Setup time: ~3-4 minutes
       - name: Install Istio
         if: ${{ inputs.install_istio == true }}
@@ -140,30 +114,33 @@ jobs:
           istioctl version
           
           # Install Istio with minimal profile for faster setup
+          # This installs CRDs, control plane, and all necessary components
           istioctl install --set profile=minimal -y
           
           # Wait for Istio control plane to be ready
           echo "Waiting for Istio control plane..."
           kubectl wait --for=condition=ready pod -l app=istiod -n istio-system --timeout=300s
           
-          echo "✓ Istio installed successfully"
+          echo "✓ Istio installed successfully (including CRDs)"
 
       # Install Prometheus (if enabled)
+      # Installs full Prometheus Operator stack with CRDs, operator, and Prometheus
       # Enables metrics collection and ServiceMonitor/PodMonitor functionality
       # Setup time: ~2-3 minutes
       - name: Install Prometheus
         if: ${{ inputs.install_prometheus == true }}
         run: |
-          echo "Installing Prometheus..."
+          echo "Installing Prometheus Operator stack..."
           
           # Create monitoring namespace
           kubectl create namespace monitoring || true
           
           # Install Prometheus Operator using Helm
+          # This installs CRDs, operator, and Prometheus instance
           helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
           helm repo update
           
-          # Install Prometheus Operator (includes CRDs + operator)
+          # Install Prometheus Operator (includes CRDs + operator + Prometheus)
           helm install prometheus prometheus-community/kube-prometheus-stack \
             --namespace monitoring \
             --set prometheus.prometheusSpec.retention=1h \
@@ -175,7 +152,7 @@ jobs:
           echo "Waiting for Prometheus to be ready..."
           kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=prometheus -n monitoring --timeout=300s || true
           
-          echo "✓ Prometheus installed successfully"
+          echo "✓ Prometheus installed successfully (including CRDs)"
 
       # Create test namespace early so Istio can label it if enabled
       - name: Create test namespace
