@@ -192,16 +192,6 @@ jobs:
           
           echo "✓ Prometheus Operator stack ${PROMETHEUS_CHART_VERSION} installed successfully (including CRDs)"
 
-      # Create test namespace early so Istio can label it if enabled
-      - name: Create test namespace
-        run: |
-          kubectl create namespace test-ns || true
-          # Label namespace for Istio injection if Istio is installed
-          if [ "${{ inputs.install_istio }}" == "true" ]; then
-            kubectl label namespace test-ns istio-injection=enabled --overwrite || true
-            echo "✓ Test namespace labeled for Istio injection"
-          fi
-
       # Set chart path (defaults to '.' if not provided)
       - name: Set chart path
         id: chart_path
@@ -219,13 +209,42 @@ jobs:
         run: |
           helm dependency update
 
-      # Install the chart into a test namespace
-      # Note: Namespace is created earlier to allow Istio labeling if enabled
-      - name: Install chart to test namespace
+      # Extract namespace from chart values (global.namespace) or use default
+      - name: Determine namespace
+        id: namespace
+        working-directory: ${{ steps.chart_path.outputs.path }}
+        run: |
+          # Try to get namespace from global.namespace in values.yaml
+          NAMESPACE=$(yq eval '.global.namespace // ""' values.yaml 2>/dev/null || echo "")
+          
+          # If not found, try Chart.yaml or default to 'test-ns'
+          if [ -z "$NAMESPACE" ]; then
+            NAMESPACE="test-ns"
+            echo "Using default namespace: ${NAMESPACE}"
+          else
+            echo "Using namespace from chart values: ${NAMESPACE}"
+          fi
+          
+          echo "namespace=${NAMESPACE}" >> $GITHUB_OUTPUT
+          echo "Namespace: ${NAMESPACE}"
+
+      # Create test namespace early so Istio can label it if enabled
+      # Uses namespace from chart values (global.namespace) or default
+      - name: Create test namespace
+        run: |
+          kubectl create namespace ${{ steps.namespace.outputs.namespace }} || true
+          # Label namespace for Istio injection if Istio is installed
+          if [ "${{ inputs.install_istio }}" == "true" ]; then
+            kubectl label namespace ${{ steps.namespace.outputs.namespace }} istio-injection=enabled --overwrite || true
+            echo "✓ Test namespace labeled for Istio injection"
+          fi
+
+      # Install the chart into the namespace from chart values
+      - name: Install chart to namespace
         working-directory: ${{ steps.chart_path.outputs.path }}
         run: |
           helm install myapp . \
-            --namespace test-ns \
+            --namespace ${{ steps.namespace.outputs.namespace }} \
             --wait \
             --timeout 5m
 
@@ -234,14 +253,14 @@ jobs:
         run: |
           kubectl wait --for=condition=Ready pods \
             --all \
-            --namespace test-ns \
+            --namespace ${{ steps.namespace.outputs.namespace }} \
             --timeout=300s
 
       # Run Helm test suite
       - name: Run helm test
         working-directory: ${{ steps.chart_path.outputs.path }}
         run: |
-          helm test myapp --namespace test-ns
+          helm test myapp --namespace ${{ steps.namespace.outputs.namespace }}
 
       # Conditional tests based on installed services
       # Test UI access if Istio is installed
@@ -249,27 +268,28 @@ jobs:
       - name: Test UI access (Istio)
         if: ${{ inputs.install_istio == true }}
         run: |
-          echo "=== Testing Istio integration ==="
+          NAMESPACE="${{ steps.namespace.outputs.namespace }}"
+          echo "=== Testing Istio integration in namespace: ${NAMESPACE} ==="
           # Verify Gateway resources exist
-          GATEWAYS=$(kubectl get gateway -n test-ns --no-headers 2>/dev/null | wc -l)
+          GATEWAYS=$(kubectl get gateway -n ${NAMESPACE} --no-headers 2>/dev/null | wc -l)
           if [ "$GATEWAYS" -gt 0 ]; then
             echo "✓ Found $GATEWAYS Gateway resource(s)"
-            kubectl get gateway -n test-ns
+            kubectl get gateway -n ${NAMESPACE}
           else
-            echo "⚠ No Gateway resources found in test-ns namespace"
+            echo "⚠ No Gateway resources found in ${NAMESPACE} namespace"
           fi
           
           # Verify VirtualService resources exist
-          VIRTUAL_SERVICES=$(kubectl get virtualservice -n test-ns --no-headers 2>/dev/null | wc -l)
+          VIRTUAL_SERVICES=$(kubectl get virtualservice -n ${NAMESPACE} --no-headers 2>/dev/null | wc -l)
           if [ "$VIRTUAL_SERVICES" -gt 0 ]; then
             echo "✓ Found $VIRTUAL_SERVICES VirtualService resource(s)"
-            kubectl get virtualservice -n test-ns
+            kubectl get virtualservice -n ${NAMESPACE}
           else
-            echo "⚠ No VirtualService resources found in test-ns namespace"
+            echo "⚠ No VirtualService resources found in ${NAMESPACE} namespace"
           fi
           
           # Verify Istio sidecars are injected
-          SIDECARS=$(kubectl get pods -n test-ns -o jsonpath='{.items[*].spec.containers[*].name}' | grep -o istio-proxy | wc -l || echo "0")
+          SIDECARS=$(kubectl get pods -n ${NAMESPACE} -o jsonpath='{.items[*].spec.containers[*].name}' | grep -o istio-proxy | wc -l || echo "0")
           if [ "$SIDECARS" -gt 0 ]; then
             echo "✓ Istio sidecars detected in pods"
           else
@@ -283,23 +303,24 @@ jobs:
       - name: Test metrics endpoints (Prometheus)
         if: ${{ inputs.install_prometheus == true }}
         run: |
-          echo "=== Testing Prometheus integration ==="
+          NAMESPACE="${{ steps.namespace.outputs.namespace }}"
+          echo "=== Testing Prometheus integration in namespace: ${NAMESPACE} ==="
           # Verify ServiceMonitor resources exist
-          SERVICEMONITORS=$(kubectl get servicemonitor -n test-ns --no-headers 2>/dev/null | wc -l)
+          SERVICEMONITORS=$(kubectl get servicemonitor -n ${NAMESPACE} --no-headers 2>/dev/null | wc -l)
           if [ "$SERVICEMONITORS" -gt 0 ]; then
             echo "✓ Found $SERVICEMONITORS ServiceMonitor resource(s)"
-            kubectl get servicemonitor -n test-ns
+            kubectl get servicemonitor -n ${NAMESPACE}
           else
-            echo "⚠ No ServiceMonitor resources found in test-ns namespace"
+            echo "⚠ No ServiceMonitor resources found in ${NAMESPACE} namespace"
           fi
           
           # Verify PodMonitor resources exist
-          PODMONITORS=$(kubectl get podmonitor -n test-ns --no-headers 2>/dev/null | wc -l)
+          PODMONITORS=$(kubectl get podmonitor -n ${NAMESPACE} --no-headers 2>/dev/null | wc -l)
           if [ "$PODMONITORS" -gt 0 ]; then
             echo "✓ Found $PODMONITORS PodMonitor resource(s)"
-            kubectl get podmonitor -n test-ns
+            kubectl get podmonitor -n ${NAMESPACE}
           else
-            echo "⚠ No PodMonitor resources found in test-ns namespace"
+            echo "⚠ No PodMonitor resources found in ${NAMESPACE} namespace"
           fi
           
           # Verify Prometheus can discover targets (if Prometheus pod exists)
@@ -328,10 +349,11 @@ jobs:
           HELM_REPO_URL: ${{ vars.HELM_REPO_URL }}
           PREVIOUS_CHART_VERSION: ${{ vars.PREVIOUS_CHART_VERSION }}
         run: |
+          NAMESPACE="${{ steps.namespace.outputs.namespace }}"
           # Clean up the initial installation
-          helm uninstall myapp --namespace test-ns || true
-          kubectl delete namespace test-ns || true
-          kubectl create namespace test-ns || true
+          helm uninstall myapp --namespace ${NAMESPACE} || true
+          kubectl delete namespace ${NAMESPACE} || true
+          kubectl create namespace ${NAMESPACE} || true
           
           # Get chart name from Chart.yaml
           CHART_NAME=$(yq eval '.name' Chart.yaml)
@@ -344,7 +366,7 @@ jobs:
             echo "⚠️  PREVIOUS_CHART_VERSION: Previous chart version to test upgrade from (e.g., 1.0.0)"
             echo "⚠️  Installing current chart as fallback for basic functionality test"
             helm install myapp . \
-              --namespace test-ns \
+              --namespace ${NAMESPACE} \
               --wait \
               --timeout 5m
           else
@@ -360,7 +382,7 @@ jobs:
             # Install previous version
             helm install myapp upgrade-test-repo/$CHART_NAME \
               --version "$PREVIOUS_CHART_VERSION" \
-              --namespace test-ns \
+              --namespace ${NAMESPACE} \
               --wait \
               --timeout 5m || {
               echo "❌ ERROR: Failed to install previous version $PREVIOUS_CHART_VERSION"
@@ -376,11 +398,12 @@ jobs:
         env:
           PREVIOUS_CHART_VERSION: ${{ vars.PREVIOUS_CHART_VERSION }}
         run: |
+          NAMESPACE="${{ steps.namespace.outputs.namespace }}"
           # Only run upgrade if previous version was installed
           if [ -n "$PREVIOUS_CHART_VERSION" ]; then
             echo "✓ Upgrading from $PREVIOUS_CHART_VERSION to current version"
             helm upgrade myapp . \
-              --namespace test-ns \
+              --namespace ${NAMESPACE} \
               --wait \
               --timeout 5m \
               --reuse-values
@@ -394,11 +417,12 @@ jobs:
         env:
           PREVIOUS_CHART_VERSION: ${{ vars.PREVIOUS_CHART_VERSION }}
         run: |
+          NAMESPACE="${{ steps.namespace.outputs.namespace }}"
           # Only wait if upgrade was performed
           if [ -n "$PREVIOUS_CHART_VERSION" ]; then
             kubectl wait --for=condition=Ready pods \
               --all \
-              --namespace test-ns \
+              --namespace ${NAMESPACE} \
               --timeout=300s
           else
             echo "⚠️  Skipping pod wait (upgrade test not configured)"
@@ -408,33 +432,38 @@ jobs:
       - name: Debug - Get pods status
         if: failure()
         run: |
-          echo "=== Pod Status ==="
-          kubectl get pods -n test-ns -o wide
+          NAMESPACE="${{ steps.namespace.outputs.namespace }}"
+          echo "=== Pod Status in namespace: ${NAMESPACE} ==="
+          kubectl get pods -n ${NAMESPACE} -o wide
 
       - name: Debug - Describe pods
         if: failure()
         run: |
-          echo "=== Pod Details ==="
-          kubectl get pods -n test-ns -o name | xargs -I {} kubectl describe {} -n test-ns
+          NAMESPACE="${{ steps.namespace.outputs.namespace }}"
+          echo "=== Pod Details in namespace: ${NAMESPACE} ==="
+          kubectl get pods -n ${NAMESPACE} -o name | xargs -I {} kubectl describe {} -n ${NAMESPACE}
 
       - name: Debug - Get events
         if: failure()
         run: |
-          echo "=== Events ==="
-          kubectl get events -n test-ns --sort-by='.lastTimestamp'
+          NAMESPACE="${{ steps.namespace.outputs.namespace }}"
+          echo "=== Events in namespace: ${NAMESPACE} ==="
+          kubectl get events -n ${NAMESPACE} --sort-by='.lastTimestamp'
 
       - name: Debug - Helm release status
         if: failure()
         run: |
-          echo "=== Helm Release Status ==="
-          helm status myapp --namespace test-ns || true
-          helm history myapp --namespace test-ns || true
+          NAMESPACE="${{ steps.namespace.outputs.namespace }}"
+          echo "=== Helm Release Status in namespace: ${NAMESPACE} ==="
+          helm status myapp --namespace ${NAMESPACE} || true
+          helm history myapp --namespace ${NAMESPACE} || true
 
       - name: Debug - Get all resources
         if: failure()
         run: |
-          echo "=== All Resources in Namespace ==="
-          kubectl get all -n test-ns
+          NAMESPACE="${{ steps.namespace.outputs.namespace }}"
+          echo "=== All Resources in namespace: ${NAMESPACE} ==="
+          kubectl get all -n ${NAMESPACE}
 
   publish:
     name: Publish Helm Chart to OCI
