@@ -1,0 +1,154 @@
+name: PR Checks
+
+on:
+  workflow_call:
+    inputs:
+      working_directory:
+        description: 'Directory containing the generate_gold.sh script'
+        required: false
+        type: string
+        default: 'gold'
+      script_name:
+        description: 'Name of the script to run'
+        required: false
+        type: string
+        default: 'generate_gold.sh'
+      chart_path:
+        description: 'Path to the helm chart to lint'
+        required: false
+        type: string
+        default: '.'
+
+# 🔒 SECURITY: Restrict permissions to minimum needed
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      # 🔒 SECURITY: Pin action to commit SHA for immutability
+      - name: Checkout code
+        uses: actions/checkout@b4ffde65f4633668828d0b93fc293753a9eb8b80 # v4.1.1
+        with:
+          fetch-depth: 0
+
+      # 📦 REPRODUCIBILITY: Pin specific Helm version
+      - name: Set up Helm
+        uses: azure/setup-helm@5119fcb9089d4d8bebe0991587a8abc80292dc48 # v3.5
+        with:
+          version: 'v3.13.2' # Pin to specific version, not 'latest'
+
+      # ✅ OPTIMIZATION: yq is pre-installed on ubuntu-latest, step removed.
+
+      # 🔒 SECURITY: Verify checksum when downloading binaries
+      - name: Install kubeconform
+        run: |
+          KUBECONFORM_VERSION="0.6.3"
+          # SHA256 checksum for kubeconform v0.6.3 linux-amd64 (verified from release)
+          EXPECTED_SHA="b89c4454930e46b0811b306b99787d559c5d0870908832a875a643d9435e0767"
+          
+          curl -L -o kubeconform.tar.gz "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          
+          # Verify checksum to prevent supply chain attacks
+          ACTUAL_SHA=$(sha256sum kubeconform.tar.gz | cut -d' ' -f1)
+          if [ "${ACTUAL_SHA}" != "${EXPECTED_SHA}" ]; then
+            echo "❌ ERROR: Checksum mismatch! Expected ${EXPECTED_SHA}, got ${ACTUAL_SHA}"
+            exit 1
+          fi
+          
+          tar -xzf kubeconform.tar.gz
+          sudo mv kubeconform /usr/local/bin/
+          kubeconform -version
+
+      # 📦 REPRODUCIBILITY: Pin plugin version
+      - name: Install helm-unittest plugin
+        run: |
+          helm plugin install https://github.com/helm-unittest/helm-unittest.git --version 0.4.1
+
+      - name: Check chart version consistency
+        working-directory: ${{ inputs.chart_path }}
+        run: |
+          set -e
+          
+          # Get current chart version
+          CURRENT_VERSION=$(yq eval '.version' Chart.yaml)
+          echo "Current chart version: ${CURRENT_VERSION}"
+          
+          # Determine base ref for comparison
+          # Try github.base_ref (available in pull_request events)
+          # Fallback to github.event.pull_request.base.ref (for workflow_call from PR)
+          # Final fallback to main
+          if [ -n "${{ github.base_ref }}" ]; then
+            BASE_REF="${{ github.base_ref }}"
+          elif [ -n "${{ github.event.pull_request.base.ref }}" ]; then
+            BASE_REF="${{ github.event.pull_request.base.ref }}"
+          else
+            BASE_REF="main"
+          fi
+          
+          echo "Comparing against base ref: ${BASE_REF}"
+          
+          # Fetch base branch to ensure we can compare
+          git fetch origin ${BASE_REF} || echo "Warning: Could not fetch ${BASE_REF}, version check may be limited"
+          
+          # Check if templates or values files changed
+          TEMPLATES_CHANGED=$(git diff --name-only origin/${BASE_REF}...HEAD -- templates/ values*.yaml Chart.yaml 2>/dev/null | grep -E "(templates/|values.*\.yaml)" || true)
+          CHART_YAML_CHANGED=$(git diff --name-only origin/${BASE_REF}...HEAD -- Chart.yaml 2>/dev/null || true)
+          
+          if [ -n "$TEMPLATES_CHANGED" ] && [ -z "$CHART_YAML_CHANGED" ]; then
+            echo "❌ ERROR: Templates or values files changed but Chart.yaml version was not bumped"
+            echo "Changed files:"
+            echo "$TEMPLATES_CHANGED"
+            echo ""
+            echo "Please bump the version in Chart.yaml before merging."
+            exit 1
+          fi
+          
+          if [ -n "$CHART_YAML_CHANGED" ]; then
+            # Check if version actually changed
+            BASE_VERSION=$(git show origin/${BASE_REF}:${{ inputs.chart_path }}/Chart.yaml 2>/dev/null | yq eval '.version' - || echo "")
+            if [ -z "$BASE_VERSION" ]; then
+              echo "⚠ Warning: Could not determine base version, skipping version comparison"
+            elif [ "$CURRENT_VERSION" = "$BASE_VERSION" ]; then
+              echo "❌ ERROR: Chart.yaml was modified but version did not change"
+              echo "Current version: ${CURRENT_VERSION}"
+              echo "Base version: ${BASE_VERSION}"
+              exit 1
+            else
+              echo "✓ Chart version bumped: ${BASE_VERSION} -> ${CURRENT_VERSION}"
+            fi
+          else
+            echo "✓ No template/values changes detected, version check skipped"
+          fi
+
+      - name: Lint Helm chart
+        working-directory: ${{ inputs.chart_path }}
+        run: |
+          helm lint --strict .
+
+      - name: Validate with kubeconform
+        working-directory: ${{ inputs.chart_path }}
+        run: |
+          helm template . | kubeconform -strict -summary
+
+      - name: Run helm unittest
+        working-directory: ${{ inputs.chart_path }}
+        run: |
+          helm unittest .
+
+      # 🔒 SECURITY: Pin Checkov action to commit SHA
+      - name: Policy checks with Checkov
+        uses: bridgecrewio/checkov-action@99bb2caf247dfd9f03cf984373bc64a09c94f2d5 # v12.2509.0
+        with:
+          directory: ${{ inputs.chart_path }}
+          framework: kubernetes
+          soft_fail: false
+          output_format: cli
+          quiet: false
+
+      - name: Validate gold file
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          chmod +x ./${{ inputs.script_name }}
+          ./${{ inputs.script_name }} test
