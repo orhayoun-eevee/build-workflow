@@ -139,12 +139,35 @@ jobs:
         run: |
           helm unittest .
 
+      # 🔒 SECURITY: Check if golden file exists
+      - name: Check golden file exists
+        id: golden_file_check
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          if [ -f "gold_file.yaml" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # 🔒 SECURITY: Validate golden file with Checkov (if exists)
+      - name: Policy checks on golden file with Checkov
+        if: steps.golden_file_check.outputs.exists == 'true'
+        uses: bridgecrewio/checkov-action@99bb2caf247dfd9f03cf984373bc6043d4e32ebf # v12.1347.0
+        with:
+          file: ${{ inputs.working_directory }}/gold_file.yaml
+          framework: kubernetes
+          soft_fail: false
+          output_format: cli
+          quiet: false
+
       # 🔒 SECURITY: Pin Checkov action to commit SHA
       - name: Policy checks with Checkov
         uses: bridgecrewio/checkov-action@99bb2caf247dfd9f03cf984373bc6043d4e32ebf # v12.1347.0
         with:
           directory: ${{ inputs.chart_path }}
-          framework: kubernetes
+          framework: helm
+          download_external_modules: true
           soft_fail: false
           output_format: cli
           quiet: false
