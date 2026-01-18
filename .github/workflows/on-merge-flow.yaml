@@ -110,6 +110,28 @@ jobs:
           cluster_name: test-cluster
           wait: 300s
 
+      # Install Gateway API CRDs (required before Istio if using Gateway API)
+      # Gateway API provides standard Kubernetes API for service networking
+      # Istio supports Gateway API, so CRDs must be installed first
+      - name: Install Gateway API CRDs
+        if: ${{ inputs.install_istio == true }}
+        run: |
+          echo "Installing Gateway API CRDs..."
+          
+          # Install Gateway API CRDs from official release
+          GATEWAY_API_VERSION="1.0.0"
+          kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v${GATEWAY_API_VERSION}/standard-install.yaml
+          
+          # Wait for CRDs to be established
+          echo "Waiting for Gateway API CRDs to be established..."
+          kubectl wait --for condition=established --timeout=60s \
+            crd/gateways.gateway.networking.k8s.io \
+            crd/httproutes.gateway.networking.k8s.io \
+            crd/referencegrants.gateway.networking.k8s.io \
+            crd/gatewayclasses.gateway.networking.k8s.io || true
+          
+          echo "✓ Gateway API CRDs installed successfully"
+
       # Install Istio service mesh (if enabled)
       # Installs full Istio with CRDs, control plane, and enables service mesh functionality
       # Enables UI access, routing, and sidecar injection
