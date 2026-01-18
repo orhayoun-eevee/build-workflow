@@ -115,7 +115,7 @@ jobs:
       # Enables UI access, routing, and sidecar injection
       # Setup time: ~3-4 minutes
       - name: Install Istio
-        if: ${{ inputs.install_istio == 'true' }}
+        if: ${{ inputs.install_istio == true }}
         env:
           ISTIO_VERSION: ${{ inputs.istio_version }}
         run: |
@@ -141,7 +141,7 @@ jobs:
       # Enables metrics collection and ServiceMonitor/PodMonitor functionality
       # Setup time: ~2-3 minutes
       - name: Install Prometheus
-        if: ${{ inputs.install_prometheus == 'true' }}
+        if: ${{ inputs.install_prometheus == true }}
         env:
           PROMETHEUS_CHART_VERSION: ${{ inputs.prometheus_chart_version }}
         run: |
@@ -225,7 +225,7 @@ jobs:
       # Test UI access if Istio is installed
       # Verifies that Istio Gateway and VirtualService resources are properly configured
       - name: Test UI access (Istio)
-        if: ${{ inputs.install_istio == 'true' }}
+        if: ${{ inputs.install_istio == true }}
         run: |
           echo "=== Testing Istio integration ==="
           # Verify Gateway resources exist
@@ -259,7 +259,7 @@ jobs:
       # Test metrics endpoints if Prometheus is installed
       # Verifies that ServiceMonitor/PodMonitor resources are configured and Prometheus can discover targets
       - name: Test metrics endpoints (Prometheus)
-        if: ${{ inputs.install_prometheus == 'true' }}
+        if: ${{ inputs.install_prometheus == true }}
         run: |
           echo "=== Testing Prometheus integration ==="
           # Verify ServiceMonitor resources exist
