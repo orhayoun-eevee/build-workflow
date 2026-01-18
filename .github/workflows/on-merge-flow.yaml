@@ -12,8 +12,12 @@ name: Merge CI/CD Flow
 #   - Installs Prometheus Operator stack with CRDs, operator, and Prometheus
 #   - Enables metrics collection and ServiceMonitor/PodMonitor functionality
 #   - Setup time: ~2-3 minutes
+# - install_longhorn: Install Longhorn distributed block storage (default: false)
+#   - Provides persistent volumes for applications
+#   - Setup time: ~2-3 minutes
 # - istio_version: Istio version to install (default: '1.20.0')
 # - prometheus_chart_version: Prometheus Operator Helm chart version (default: '55.0.0')
+# - longhorn_chart_version: Longhorn Helm chart version (default: '1.6.0')
 #
 # Example Configurations:
 # 1. Basic testing (no external services):
@@ -70,6 +74,16 @@ on:
         required: false
         type: string
         default: '55.0.0'
+      install_longhorn:
+        description: 'Install Longhorn distributed block storage (provides persistent volumes)'
+        required: false
+        type: boolean
+        default: false
+      longhorn_chart_version:
+        description: 'Longhorn Helm chart version (e.g., 1.6.0)'
+        required: false
+        type: string
+        default: '1.6.0'
 
 permissions:
   contents: read
@@ -157,6 +171,38 @@ jobs:
           kubectl wait --for=condition=ready pod -l app=istiod -n istio-system --timeout=300s
           
           echo "✓ Istio ${ISTIO_VERSION} installed successfully (including CRDs)"
+
+      # Install Longhorn (if enabled)
+      # Installs Longhorn distributed block storage system
+      # Provides persistent volumes for applications
+      # Setup time: ~2-3 minutes
+      - name: Install Longhorn
+        if: ${{ inputs.install_longhorn == true }}
+        env:
+          LONGHORN_CHART_VERSION: ${{ inputs.longhorn_chart_version }}
+        run: |
+          echo "Installing Longhorn (chart version ${LONGHORN_CHART_VERSION})..."
+          
+          # Add Longhorn Helm repository
+          helm repo add longhorn https://charts.longhorn.io
+          helm repo update
+          
+          # Install Longhorn
+          helm install longhorn longhorn/longhorn \
+            --version ${LONGHORN_CHART_VERSION} \
+            --namespace longhorn-system \
+            --create-namespace \
+            --wait \
+            --timeout 10m
+          
+          # Wait for Longhorn pods to be ready
+          echo "Waiting for Longhorn to be ready..."
+          kubectl wait --for=condition=ready pod \
+            -l app=longhorn-manager \
+            -n longhorn-system \
+            --timeout=300s || true
+          
+          echo "✓ Longhorn ${LONGHORN_CHART_VERSION} installed successfully"
 
       # Install Prometheus (if enabled)
       # Installs full Prometheus Operator stack with CRDs, operator, and Prometheus
