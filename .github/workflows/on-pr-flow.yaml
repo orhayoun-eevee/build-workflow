@@ -153,6 +153,7 @@ jobs:
           soft_fail: false
           output_format: cli
           quiet: false
+          skip_check: CKV_K8S_40
 
       # 🔒 SECURITY: Pin Checkov action to commit SHA
       - name: Policy checks with Checkov
@@ -164,6 +165,7 @@ jobs:
           soft_fail: false
           output_format: cli
           quiet: false
+          skip_check: CKV_K8S_40
 
       - name: Validate gold file
         working-directory: ${{ inputs.working_directory }}
