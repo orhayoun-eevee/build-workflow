@@ -4,6 +4,9 @@ name: Merge CI/CD Flow
 #
 # Configuration Options:
 # - chart_path: Path to the Helm chart directory (default: '.')
+# - values_file: Path to values file for CI (e.g., 'values-ci.yaml'). If not provided, uses default values.yaml (default: '')
+#   - Use this to specify CI-specific values that differ from your local development values
+#   - The file path is relative to the chart_path directory
 # - install_istio: Install full Istio service mesh (default: false)
 #   - Installs Istio with CRDs, control plane, and all components
 #   - Enables UI access, service mesh routing, and sidecar injection
@@ -16,6 +19,7 @@ name: Merge CI/CD Flow
 #   - Provides persistent volumes for applications
 #   - Setup time: ~2-3 minutes
 # - istio_version: Istio version to install (default: '1.20.0')
+# - istio_profile: Istio installation profile - ambient, minimal, demo, or default (default: 'ambient')
 # - prometheus_chart_version: Prometheus Operator Helm chart version (default: '55.0.0')
 # - longhorn_chart_version: Longhorn Helm chart version (default: '1.6.0')
 #
@@ -69,6 +73,11 @@ on:
         required: false
         type: string
         default: '1.20.0'
+      istio_profile:
+        description: 'Istio installation profile (e.g., ambient, minimal, demo, default)'
+        required: false
+        type: string
+        default: 'ambient'
       prometheus_chart_version:
         description: 'Prometheus Operator Helm chart version (e.g., 55.0.0)'
         required: false
@@ -84,6 +93,11 @@ on:
         required: false
         type: string
         default: '1.6.0'
+      values_file:
+        description: 'Path to values file to use for CI (e.g., values-ci.yaml). If not provided, uses default values.yaml'
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -154,23 +168,31 @@ jobs:
         if: ${{ inputs.install_istio == true }}
         env:
           ISTIO_VERSION: ${{ inputs.istio_version }}
+          ISTIO_PROFILE: ${{ inputs.istio_profile }}
         run: |
-          echo "Installing Istio service mesh (version ${ISTIO_VERSION})..."
+          echo "Installing Istio service mesh (version ${ISTIO_VERSION}, profile: ${ISTIO_PROFILE})..."
           
           # Download and install istioctl
           curl -L https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux-amd64.tar.gz | tar -xz
           sudo mv istio-${ISTIO_VERSION}/bin/istioctl /usr/local/bin/
           istioctl version
           
-          # Install Istio with minimal profile for faster setup
+          # Install Istio with specified profile (default: ambient)
+          # Ambient profile provides sidecar-less service mesh
           # This installs CRDs, control plane, and all necessary components
-          istioctl install --set profile=minimal -y
+          istioctl install --set profile=${ISTIO_PROFILE} -y
           
           # Wait for Istio control plane to be ready
           echo "Waiting for Istio control plane..."
           kubectl wait --for=condition=ready pod -l app=istiod -n istio-system --timeout=300s
           
-          echo "✓ Istio ${ISTIO_VERSION} installed successfully (including CRDs)"
+          # For ambient profile, also wait for ztunnel pods
+          if [ "${ISTIO_PROFILE}" = "ambient" ]; then
+            echo "Waiting for Istio ambient components (ztunnel)..."
+            kubectl wait --for=condition=ready pod -l app=ztunnel -n istio-system --timeout=300s || true
+          fi
+          
+          echo "✓ Istio ${ISTIO_VERSION} (profile: ${ISTIO_PROFILE}) installed successfully (including CRDs)"
 
       # Install Longhorn (if enabled)
       # Installs Longhorn distributed block storage system
@@ -328,10 +350,23 @@ jobs:
       - name: Install chart to namespace
         working-directory: ${{ steps.chart_path.outputs.path }}
         run: |
-          helm install myapp . \
-            --namespace ${{ steps.namespace.outputs.namespace }} \
-            --wait \
-            --timeout 5m
+          VALUES_FILE="${{ inputs.values_file }}"
+          if [ -n "$VALUES_FILE" ] && [ -f "$VALUES_FILE" ]; then
+            echo "Using CI values file: ${VALUES_FILE}"
+            helm install myapp . \
+              --namespace ${{ steps.namespace.outputs.namespace }} \
+              --values ${VALUES_FILE} \
+              --wait \
+              --timeout 5m
+          else
+            if [ -n "$VALUES_FILE" ]; then
+              echo "⚠️  WARNING: Specified values file '${VALUES_FILE}' not found, using default values.yaml"
+            fi
+            helm install myapp . \
+              --namespace ${{ steps.namespace.outputs.namespace }} \
+              --wait \
+              --timeout 5m
+          fi
 
       # Wait for all pods to become Ready
       - name: Wait for pods to be Ready
@@ -444,6 +479,13 @@ jobs:
           CHART_NAME=$(yq eval '.name' Chart.yaml)
           
           # Check if upgrade test is configured
+          VALUES_FILE="${{ inputs.values_file }}"
+          VALUES_FLAG=""
+          if [ -n "$VALUES_FILE" ] && [ -f "$VALUES_FILE" ]; then
+            VALUES_FLAG="--values ${VALUES_FILE}"
+            echo "Using CI values file: ${VALUES_FILE}"
+          fi
+          
           if [ -z "$HELM_REPO_URL" ] || [ -z "$PREVIOUS_CHART_VERSION" ]; then
             echo "⚠️  WARNING: Upgrade test skipped - HELM_REPO_URL or PREVIOUS_CHART_VERSION not configured"
             echo "⚠️  To enable upgrade testing, set these in: Settings > Secrets and variables > Actions > Variables"
@@ -452,6 +494,7 @@ jobs:
             echo "⚠️  Installing current chart as fallback for basic functionality test"
             helm install myapp . \
               --namespace ${NAMESPACE} \
+              ${VALUES_FLAG} \
               --wait \
               --timeout 5m
           else
@@ -465,14 +508,35 @@ jobs:
             helm repo update upgrade-test-repo
             
             # Install previous version
-            helm install myapp upgrade-test-repo/$CHART_NAME \
-              --version "$PREVIOUS_CHART_VERSION" \
-              --namespace ${NAMESPACE} \
-              --wait \
-              --timeout 5m || {
-              echo "❌ ERROR: Failed to install previous version $PREVIOUS_CHART_VERSION"
-              exit 1
-            }
+            # Note: CI values file may not exist in previous version, so we try to use it but don't fail if it doesn't
+            if [ -n "$VALUES_FLAG" ] && [ -f "$VALUES_FILE" ]; then
+              echo "Attempting to install previous version with CI values file..."
+              helm install myapp upgrade-test-repo/$CHART_NAME \
+                --version "$PREVIOUS_CHART_VERSION" \
+                --namespace ${NAMESPACE} \
+                ${VALUES_FLAG} \
+                --wait \
+                --timeout 5m || {
+                echo "⚠️  WARNING: Failed to install previous version with CI values, trying without..."
+                helm install myapp upgrade-test-repo/$CHART_NAME \
+                  --version "$PREVIOUS_CHART_VERSION" \
+                  --namespace ${NAMESPACE} \
+                  --wait \
+                  --timeout 5m || {
+                  echo "❌ ERROR: Failed to install previous version $PREVIOUS_CHART_VERSION"
+                  exit 1
+                }
+              }
+            else
+              helm install myapp upgrade-test-repo/$CHART_NAME \
+                --version "$PREVIOUS_CHART_VERSION" \
+                --namespace ${NAMESPACE} \
+                --wait \
+                --timeout 5m || {
+                echo "❌ ERROR: Failed to install previous version $PREVIOUS_CHART_VERSION"
+                exit 1
+              }
+            fi
             
             echo "✓ Previous version installed successfully"
           fi
@@ -484,11 +548,19 @@ jobs:
           PREVIOUS_CHART_VERSION: ${{ vars.PREVIOUS_CHART_VERSION }}
         run: |
           NAMESPACE="${{ steps.namespace.outputs.namespace }}"
+          VALUES_FILE="${{ inputs.values_file }}"
+          VALUES_FLAG=""
+          if [ -n "$VALUES_FILE" ] && [ -f "$VALUES_FILE" ]; then
+            VALUES_FLAG="--values ${VALUES_FILE}"
+            echo "Using CI values file: ${VALUES_FILE}"
+          fi
+          
           # Only run upgrade if previous version was installed
           if [ -n "$PREVIOUS_CHART_VERSION" ]; then
             echo "✓ Upgrading from $PREVIOUS_CHART_VERSION to current version"
             helm upgrade myapp . \
               --namespace ${NAMESPACE} \
+              ${VALUES_FLAG} \
               --wait \
               --timeout 5m \
               --reuse-values
