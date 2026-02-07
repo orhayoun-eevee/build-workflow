@@ -187,7 +187,7 @@ jobs:
       # Policy checks with Checkov (chart directory)
       - name: Policy checks with Checkov
         if: ${{ inputs.run_checkov }}
-        uses: bridgecrewio/checkov-action@d34c3e1993b29fa7f47aabf35e5c09eef7d0aec9 # v12.2841.0
+        uses: bridgecrewio/checkov-action@f34885219720066007f948b843e747bb136aa223 # v3.2.500
         with:
           directory: ${{ inputs.chart_path }}
           framework: helm
@@ -209,7 +209,7 @@ jobs:
       # Policy checks on golden file with Checkov
       - name: Policy checks on golden file with Checkov
         if: ${{ inputs.run_golden && inputs.run_checkov }}
-        uses: bridgecrewio/checkov-action@d34c3e1993b29fa7f47aabf35e5c09eef7d0aec9 # v12.2841.0
+        uses: bridgecrewio/checkov-action@f34885219720066007f948b843e747bb136aa223 # v3.2.500
         with:
           file: ${{ inputs.golden_file || 'tests/golden.yaml' }}
           framework: kubernetes
