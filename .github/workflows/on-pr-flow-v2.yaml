@@ -127,7 +127,7 @@ jobs:
       - name: Install helm-unittest plugin
         if: ${{ inputs.run_tests }}
         run: |
-          helm plugin install https://github.com/helm-unittest/helm-unittest.git --version v1.0.3
+          helm plugin install https://github.com/helm-unittest/helm-unittest.git --version v1.0.3 --verify=false
 
       # Install chart-testing (ct)
       - name: Install chart-testing (ct)
