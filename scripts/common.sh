@@ -43,7 +43,9 @@ get_abs_path() {
     if [[ -d "$path" ]]; then
         (cd "$path" && pwd)
     elif [[ -f "$path" ]]; then
-        (cd "$(dirname "$path")" && pwd)/$(basename "$path")
+        local dir=$(dirname "$path")
+        local base=$(basename "$path")
+        (cd "$dir" && pwd)/"$base"
     else
         echo "$path"
     fi
