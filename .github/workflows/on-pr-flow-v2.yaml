@@ -164,10 +164,14 @@ jobs:
       - name: Lint Helm chart
         if: ${{ inputs.run_lint }}
         run: |
-          LINT_CMD="./scripts/lint.sh --strict"
-          ${{ inputs.run_ct_lint && '--ct' || '' }}
-          ${{ inputs.lint_additional_charts && format('--additional {0}', inputs.lint_additional_charts) || '' }}
-          $LINT_CMD ${{ inputs.chart_path }}
+          LINT_ARGS="--strict"
+          if [ "${{ inputs.run_ct_lint }}" = "true" ]; then
+            LINT_ARGS="$LINT_ARGS --ct"
+          fi
+          if [ -n "${{ inputs.lint_additional_charts }}" ]; then
+            LINT_ARGS="$LINT_ARGS --additional ${{ inputs.lint_additional_charts }}"
+          fi
+          ./scripts/lint.sh $LINT_ARGS ${{ inputs.chart_path }}
 
       # Run unit tests
       - name: Run helm unittest
@@ -180,9 +184,11 @@ jobs:
       - name: Validate with kubeconform
         if: ${{ inputs.run_kubeconform }}
         run: |
-          KUBECONFORM_CMD="./scripts/kubeconform.sh"
-          ${{ inputs.values_file && format('--values-file {0}', inputs.values_file) || '' }}
-          $KUBECONFORM_CMD ${{ inputs.chart_path }}
+          KUBECONFORM_ARGS=""
+          if [ -n "${{ inputs.values_file }}" ]; then
+            KUBECONFORM_ARGS="$KUBECONFORM_ARGS --values-file ${{ inputs.values_file }}"
+          fi
+          ./scripts/kubeconform.sh $KUBECONFORM_ARGS ${{ inputs.chart_path }}
 
       # Policy checks with Checkov (chart directory)
       - name: Policy checks with Checkov
@@ -201,10 +207,14 @@ jobs:
       - name: Validate golden file
         if: ${{ inputs.run_golden }}
         run: |
-          GOLDEN_CMD="./scripts/golden.sh"
-          ${{ inputs.golden_file && format('--golden-file {0}', inputs.golden_file) || '' }}
-          ${{ inputs.values_file && format('--values-file {0}', inputs.values_file) || '' }}
-          $GOLDEN_CMD ${{ inputs.chart_path }}
+          GOLDEN_ARGS=""
+          if [ -n "${{ inputs.golden_file }}" ]; then
+            GOLDEN_ARGS="$GOLDEN_ARGS --golden-file ${{ inputs.golden_file }}"
+          fi
+          if [ -n "${{ inputs.values_file }}" ]; then
+            GOLDEN_ARGS="$GOLDEN_ARGS --values-file ${{ inputs.values_file }}"
+          fi
+          ./scripts/golden.sh $GOLDEN_ARGS ${{ inputs.chart_path }}
 
       # Policy checks on golden file with Checkov
       - name: Policy checks on golden file with Checkov
