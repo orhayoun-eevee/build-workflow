@@ -151,8 +151,8 @@ jobs:
       - name: Install helm-unittest plugin
         if: ${{ inputs.run_tests }}
         run: |
-          # Note: helm-unittest releases are not signed, so --verify is not supported
-          helm plugin install https://github.com/helm-unittest/helm-unittest.git --version ${HELM_UNITTEST_VERSION}
+          # Note: helm-unittest releases are not signed, so --verify=false is required
+          helm plugin install https://github.com/helm-unittest/helm-unittest.git --version ${HELM_UNITTEST_VERSION} --verify=false
 
       # Install chart-testing (ct)
       - name: Install chart-testing (ct)
