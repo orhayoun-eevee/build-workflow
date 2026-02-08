@@ -82,9 +82,26 @@ on:
 permissions:
   contents: read
 
+# Centralized tool versions
+env:
+  HELM_VERSION: 'v4.1.0'
+  KUBECONFORM_VERSION: 'v0.7.0'
+  CT_VERSION: 'v3.12.0'
+  HELM_UNITTEST_VERSION: 'v1.0.3'
+  # Note: yq 4.50.1 is pre-installed on ubuntu-latest
+
+# Concurrency control to avoid redundant workflow runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
     steps:
       # Checkout code with full history for version checking
       - name: Checkout code
@@ -92,23 +109,30 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Validate inputs early to fail fast with clear errors
+      - name: Validate inputs
+        env:
+          CHART_PATH: ${{ inputs.chart_path }}
+        run: |
+          if [ ! -d "$CHART_PATH" ]; then
+            echo "❌ ERROR: chart_path '$CHART_PATH' is not a directory"
+            exit 1
+          fi
+          if [ ! -f "$CHART_PATH/Chart.yaml" ]; then
+            echo "❌ ERROR: No Chart.yaml found in '$CHART_PATH'"
+            exit 1
+          fi
+          echo "✓ Input validation passed"
+
       # Set up Helm with latest stable version
       - name: Set up Helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
         with:
-          version: 'v4.1.0'
-
-      # Install yq for YAML parsing
-      - name: Install yq
-        run: |
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
-          yq --version
+          version: ${{ env.HELM_VERSION }}
 
       # Install kubeconform for manifest validation
       - name: Install kubeconform
         run: |
-          KUBECONFORM_VERSION="v0.7.0"
           EXPECTED_SHA="c31518ddd122663b3f3aa874cfe8178cb0988de944f29c74a0b9260920d115d3"
           
           curl -L -o kubeconform.tar.gz "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
@@ -127,14 +151,24 @@ jobs:
       - name: Install helm-unittest plugin
         if: ${{ inputs.run_tests }}
         run: |
-          helm plugin install https://github.com/helm-unittest/helm-unittest.git --version v1.0.3 --verify=false
+          # Note: helm-unittest releases are not signed, so --verify is not supported
+          helm plugin install https://github.com/helm-unittest/helm-unittest.git --version ${HELM_UNITTEST_VERSION}
 
       # Install chart-testing (ct)
       - name: Install chart-testing (ct)
         if: ${{ inputs.run_ct_lint }}
         run: |
-          curl -LO https://github.com/helm/chart-testing/releases/download/v3.12.0/chart-testing_3.12.0_linux_amd64.tar.gz
-          tar -xzf chart-testing_3.12.0_linux_amd64.tar.gz
+          EXPECTED_SHA="7d1b41b92905c64e93ac2fdb9fce89003e4ca5a2b1a2072f32c8befd2f36a0e5"
+          
+          curl -L -o chart-testing.tar.gz "https://github.com/helm/chart-testing/releases/download/${CT_VERSION}/chart-testing_${CT_VERSION#v}_linux_amd64.tar.gz"
+          
+          ACTUAL_SHA=$(sha256sum chart-testing.tar.gz | cut -d' ' -f1)
+          if [ "${ACTUAL_SHA}" != "${EXPECTED_SHA}" ]; then
+            echo "❌ ERROR: Checksum mismatch! Expected ${EXPECTED_SHA}, got ${ACTUAL_SHA}"
+            exit 1
+          fi
+          
+          tar -xzf chart-testing.tar.gz
           sudo mv ct /usr/local/bin/
           ct version
 
@@ -150,62 +184,91 @@ jobs:
 
       # Update Helm dependencies
       - name: Update Helm dependencies
+        env:
+          CHART_PATH: ${{ inputs.chart_path }}
         working-directory: ${{ inputs.chart_path }}
         run: |
           helm dependency build
 
       # Version bump check
       - name: Check chart version consistency
+        id: version_check
         if: ${{ inputs.run_version_check }}
+        continue-on-error: true
+        env:
+          CHART_PATH: ${{ inputs.chart_path }}
         run: |
-          ./scripts/version-check.sh ${{ inputs.chart_path }}
+          ./scripts/version-check.sh "$CHART_PATH"
 
       # Lint chart
       - name: Lint Helm chart
+        id: lint
         if: ${{ inputs.run_lint }}
+        continue-on-error: true
+        env:
+          CHART_PATH: ${{ inputs.chart_path }}
+          RUN_CT_LINT: ${{ inputs.run_ct_lint }}
+          ADDITIONAL_CHARTS: ${{ inputs.lint_additional_charts }}
         run: |
           LINT_ARGS="--strict"
-          if [ "${{ inputs.run_ct_lint }}" = "true" ]; then
+          if [ "$RUN_CT_LINT" = "true" ]; then
             LINT_ARGS="$LINT_ARGS --ct"
           fi
-          if [ -n "${{ inputs.lint_additional_charts }}" ]; then
-            LINT_ARGS="$LINT_ARGS --additional ${{ inputs.lint_additional_charts }}"
+          if [ -n "$ADDITIONAL_CHARTS" ]; then
+            LINT_ARGS="$LINT_ARGS --additional $ADDITIONAL_CHARTS"
           fi
-          ./scripts/lint.sh $LINT_ARGS ${{ inputs.chart_path }}
+          ./scripts/lint.sh $LINT_ARGS "$CHART_PATH"
 
       # Run unit tests
       - name: Run helm unittest
+        id: test
         if: ${{ inputs.run_tests }}
+        continue-on-error: true
+        env:
+          CHART_PATH: ${{ inputs.chart_path }}
         working-directory: ${{ inputs.chart_path }}
         run: |
           helm unittest .
 
       # Validate with kubeconform
       - name: Validate with kubeconform
+        id: kubeconform
         if: ${{ inputs.run_kubeconform }}
+        continue-on-error: true
+        env:
+          CHART_PATH: ${{ inputs.chart_path }}
+          VALUES_FILE: ${{ inputs.values_file }}
         run: |
           KUBECONFORM_ARGS=""
-          if [ -n "${{ inputs.values_file }}" ]; then
-            KUBECONFORM_ARGS="$KUBECONFORM_ARGS --values-file ${{ inputs.values_file }}"
+          if [ -n "$VALUES_FILE" ]; then
+            KUBECONFORM_ARGS="$KUBECONFORM_ARGS --values-file $VALUES_FILE"
           fi
-          ./scripts/kubeconform.sh $KUBECONFORM_ARGS ${{ inputs.chart_path }}
+          ./scripts/kubeconform.sh $KUBECONFORM_ARGS "$CHART_PATH"
 
       # Validate golden file
       - name: Validate golden file
+        id: golden
         if: ${{ inputs.run_golden }}
+        continue-on-error: true
+        env:
+          CHART_PATH: ${{ inputs.chart_path }}
+          GOLDEN_FILE: ${{ inputs.golden_file }}
+          VALUES_FILE: ${{ inputs.values_file }}
         run: |
           GOLDEN_ARGS=""
-          if [ -n "${{ inputs.golden_file }}" ]; then
-            GOLDEN_ARGS="$GOLDEN_ARGS --golden-file ${{ inputs.golden_file }}"
+          if [ -n "$GOLDEN_FILE" ]; then
+            GOLDEN_ARGS="$GOLDEN_ARGS --golden-file $GOLDEN_FILE"
           fi
-          if [ -n "${{ inputs.values_file }}" ]; then
-            GOLDEN_ARGS="$GOLDEN_ARGS --values-file ${{ inputs.values_file }}"
+          if [ -n "$VALUES_FILE" ]; then
+            GOLDEN_ARGS="$GOLDEN_ARGS --values-file $VALUES_FILE"
           fi
-          ./scripts/golden.sh $GOLDEN_ARGS ${{ inputs.chart_path }}
+          ./scripts/golden.sh $GOLDEN_ARGS "$CHART_PATH"
 
       # Policy checks on golden file with Checkov
       - name: Policy checks on golden file with Checkov
+        id: checkov
         if: ${{ inputs.run_golden && inputs.run_checkov }}
+        continue-on-error: true
         uses: bridgecrewio/checkov-action@f34885219720066007f948b843e747bb136aa223 # v3.2.500
         with:
           file: ${{ inputs.golden_file || 'tests/golden.yaml' }}
@@ -215,16 +278,23 @@ jobs:
           quiet: false
           skip_check: ${{ inputs.checkov_skip_checks }}
 
-      # Ensure golden file is up to date
+      # Ensure golden file is up to date (let golden.sh handle path detection)
       - name: Ensure golden file is up to date
+        id: golden_git_check
         if: ${{ inputs.run_golden }}
+        continue-on-error: true
+        env:
+          GOLDEN_FILE: ${{ inputs.golden_file }}
         run: |
-          GOLDEN_FILE="${{ inputs.golden_file }}"
+          # Use golden.sh's auto-detection if GOLDEN_FILE is empty
           if [ -z "$GOLDEN_FILE" ]; then
             if [ -f "tests/golden.yaml" ]; then
               GOLDEN_FILE="tests/golden.yaml"
             elif [ -f "gold/gold_file.yaml" ]; then
               GOLDEN_FILE="gold/gold_file.yaml"
+            else
+              echo "⚠️  WARNING: Could not detect golden file path"
+              exit 0
             fi
           fi
           
@@ -244,3 +314,139 @@ jobs:
             exit 1
           fi
           echo "✓ Golden file is up to date"
+
+      # Generate validation summary
+      - name: Validation Summary
+        if: always()
+        run: |
+          echo "## 📊 Helm Chart Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          
+          # Version check
+          if [ "${{ inputs.run_version_check }}" = "true" ]; then
+            if [ "${{ steps.version_check.outcome }}" = "success" ]; then
+              echo "| Version Check | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ steps.version_check.outcome }}" = "failure" ]; then
+              echo "| Version Check | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| Version Check | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          # Lint
+          if [ "${{ inputs.run_lint }}" = "true" ]; then
+            if [ "${{ steps.lint.outcome }}" = "success" ]; then
+              echo "| Helm Lint | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ steps.lint.outcome }}" = "failure" ]; then
+              echo "| Helm Lint | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| Helm Lint | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          # Tests
+          if [ "${{ inputs.run_tests }}" = "true" ]; then
+            if [ "${{ steps.test.outcome }}" = "success" ]; then
+              echo "| Unit Tests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ steps.test.outcome }}" = "failure" ]; then
+              echo "| Unit Tests | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| Unit Tests | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          # Kubeconform
+          if [ "${{ inputs.run_kubeconform }}" = "true" ]; then
+            if [ "${{ steps.kubeconform.outcome }}" = "success" ]; then
+              echo "| Kubeconform | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ steps.kubeconform.outcome }}" = "failure" ]; then
+              echo "| Kubeconform | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| Kubeconform | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          # Golden
+          if [ "${{ inputs.run_golden }}" = "true" ]; then
+            if [ "${{ steps.golden.outcome }}" = "success" ]; then
+              echo "| Golden File | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ steps.golden.outcome }}" = "failure" ]; then
+              echo "| Golden File | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| Golden File | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+            fi
+            
+            # Golden git check
+            if [ "${{ steps.golden_git_check.outcome }}" = "success" ]; then
+              echo "| Golden Up-to-Date | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ steps.golden_git_check.outcome }}" = "failure" ]; then
+              echo "| Golden Up-to-Date | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| Golden Up-to-Date | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          # Checkov
+          if [ "${{ inputs.run_golden }}" = "true" ] && [ "${{ inputs.run_checkov }}" = "true" ]; then
+            if [ "${{ steps.checkov.outcome }}" = "success" ]; then
+              echo "| Checkov Security | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+            elif [ "${{ steps.checkov.outcome }}" = "failure" ]; then
+              echo "| Checkov Security | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| Checkov Security | ⏭️ Skipped |" >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Chart Path:** \`${{ inputs.chart_path }}\`" >> $GITHUB_STEP_SUMMARY
+
+      # Final gate: fail if any check failed
+      - name: Check validation results
+        if: always()
+        run: |
+          FAILED=false
+          
+          if [ "${{ steps.version_check.outcome }}" = "failure" ]; then
+            echo "❌ Version check failed"
+            FAILED=true
+          fi
+          
+          if [ "${{ steps.lint.outcome }}" = "failure" ]; then
+            echo "❌ Lint failed"
+            FAILED=true
+          fi
+          
+          if [ "${{ steps.test.outcome }}" = "failure" ]; then
+            echo "❌ Unit tests failed"
+            FAILED=true
+          fi
+          
+          if [ "${{ steps.kubeconform.outcome }}" = "failure" ]; then
+            echo "❌ Kubeconform validation failed"
+            FAILED=true
+          fi
+          
+          if [ "${{ steps.golden.outcome }}" = "failure" ]; then
+            echo "❌ Golden file validation failed"
+            FAILED=true
+          fi
+          
+          if [ "${{ steps.golden_git_check.outcome }}" = "failure" ]; then
+            echo "❌ Golden file not up to date"
+            FAILED=true
+          fi
+          
+          if [ "${{ steps.checkov.outcome }}" = "failure" ]; then
+            echo "❌ Checkov security checks failed"
+            FAILED=true
+          fi
+          
+          if [ "$FAILED" = "true" ]; then
+            echo ""
+            echo "❌ One or more validation checks failed. See summary above."
+            exit 1
+          fi
+          
+          echo "✅ All validation checks passed!"

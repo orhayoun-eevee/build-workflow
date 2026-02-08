@@ -6,7 +6,7 @@ source "$SCRIPT_DIR/common.sh"
 
 # Defaults
 MANIFEST_FILE=""
-SKIP_CHECKS="CKV_K8S_40"
+SKIP_CHECKS="CKV_K8S_43"  # CKV_K8S_43: Image digest (not practical for Helm charts)
 SOFT_FAIL=false
 
 # Parse arguments
@@ -32,7 +32,7 @@ Run Checkov security and policy checks.
 
 Options:
   --manifest PATH       Check manifest file instead of chart directory
-  --skip-checks IDS     Skip specific checks (comma-separated, default: CKV_K8S_40)
+  --skip-checks IDS     Skip specific checks (comma-separated, default: CKV_K8S_43)
   --soft-fail           Don't fail on policy violations
   --help                Show this help
 

@@ -35,13 +35,6 @@ jobs:
         with:
           version: 'v4.1.0'
 
-      # Install yq for YAML parsing
-      - name: Install yq
-        run: |
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
-          yq --version
-
       # Set chart path (defaults to '.' if not provided)
       - name: Set chart path
         id: chart_path
