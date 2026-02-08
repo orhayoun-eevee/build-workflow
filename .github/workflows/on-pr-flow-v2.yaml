@@ -73,10 +73,10 @@ on:
       
       # Other config
       checkov_skip_checks:
-        description: 'Checkov checks to skip (comma-separated)'
+        description: 'Checkov checks to skip for golden file scan (comma-separated). Only skip truly impractical checks.'
         required: false
         type: string
-        default: 'CKV_K8S_40'
+        default: 'CKV_K8S_43'  # CKV_K8S_43: Image digest (not practical for Helm charts)
 
 # Security: Restrict permissions to minimum needed
 permissions:
@@ -189,19 +189,6 @@ jobs:
             KUBECONFORM_ARGS="$KUBECONFORM_ARGS --values-file ${{ inputs.values_file }}"
           fi
           ./scripts/kubeconform.sh $KUBECONFORM_ARGS ${{ inputs.chart_path }}
-
-      # Policy checks with Checkov (chart directory)
-      - name: Policy checks with Checkov
-        if: ${{ inputs.run_checkov }}
-        uses: bridgecrewio/checkov-action@f34885219720066007f948b843e747bb136aa223 # v3.2.500
-        with:
-          directory: ${{ inputs.chart_path }}
-          framework: helm
-          download_external_modules: true
-          soft_fail: false
-          output_format: cli
-          quiet: false
-          skip_check: ${{ inputs.checkov_skip_checks }}
 
       # Validate golden file
       - name: Validate golden file
