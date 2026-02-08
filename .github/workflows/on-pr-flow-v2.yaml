@@ -158,7 +158,7 @@ jobs:
       - name: Install chart-testing (ct)
         if: ${{ inputs.run_ct_lint }}
         run: |
-          EXPECTED_SHA="7d1b41b92905c64e93ac2fdb9fce89003e4ca5a2b1a2072f32c8befd2f36a0e5"
+          EXPECTED_SHA="8b450caac147de6838bde818f6923324c60185295181198eeb624b22c02894f4"
           
           curl -L -o chart-testing.tar.gz "https://github.com/helm/chart-testing/releases/download/${CT_VERSION}/chart-testing_${CT_VERSION#v}_linux_amd64.tar.gz"
           
