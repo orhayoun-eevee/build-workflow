@@ -1,0 +1,15 @@
+checks:
+  # Start with built-in default checks only (~25 checks)
+  # Non-default checks to evaluate and progressively enable:
+  # TODO: no-liveness-probe
+  # TODO: no-readiness-probe
+  # TODO: no-rolling-update-strategy
+  # TODO: default-service-account
+  # TODO: non-isolated-pod (NetworkPolicy)
+  # TODO: minimum-three-replicas
+  # TODO: cluster-admin-role-binding
+  # TODO: access-to-secrets
+  # TODO: read-secret-from-env-var
+  doNotAutoAddDefaults: false
+  exclude: []
+  include: []

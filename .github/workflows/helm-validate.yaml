@@ -1,0 +1,99 @@
+name: Helm Chart Validation
+
+on:
+  workflow_call:
+    inputs:
+      chart_path:
+        description: 'Path to the Helm chart directory'
+        required: true
+        type: string
+      kubernetes_version:
+        description: 'Target Kubernetes version (e.g., 1.30.0)'
+        required: true
+        type: string
+      scenarios_dir:
+        description: 'Path to scenario fixtures (relative to chart_path)'
+        required: false
+        type: string
+        default: 'tests/scenarios'
+      snapshots_dir:
+        description: 'Path to snapshot files (relative to chart_path)'
+        required: false
+        type: string
+        default: 'tests/snapshots'
+      target_branch:
+        description: 'Base branch for version comparison'
+        required: false
+        type: string
+        default: 'main'
+      run_version_check:
+        description: 'Run version strictly-greater check'
+        required: false
+        type: boolean
+        default: true
+      checkov_extra_args:
+        description: 'Extra args for Checkov (e.g., --skip-check CKV_K8S_43)'
+        required: false
+        type: string
+        default: ''
+      docker_image:
+        description: 'Docker image to use for validation'
+        required: false
+        type: string
+        default: 'ghcr.io/orhayoun-eevee/helm-validate:latest'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ inputs.docker_image }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0  # Needed for version comparison and ct lint
+
+      - name: Checkout build-workflow (validation framework)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: orhayoun-eevee/build-workflow
+          path: .build-workflow
+
+      - name: Run validation pipeline
+        env:
+          CHART_PATH: ${{ inputs.chart_path }}
+          KUBERNETES_VERSION: ${{ inputs.kubernetes_version }}
+          SCENARIOS_DIR: ${{ inputs.chart_path }}/${{ inputs.scenarios_dir }}
+          SNAPSHOTS_DIR: ${{ inputs.chart_path }}/${{ inputs.snapshots_dir }}
+          TARGET_BRANCH: ${{ inputs.target_branch }}
+          RUN_VERSION_CHECK: ${{ inputs.run_version_check }}
+          CHECKOV_EXTRA_ARGS: ${{ inputs.checkov_extra_args }}
+          CONFIGS_DIR: .build-workflow/configs
+        run: .build-workflow/scripts/validate-orchestrator.sh
+
+      - name: Post PR Comment
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const conclusion = '${{ job.status }}';
+            const icon = conclusion === 'success' ? '✅' : '❌';
+            const body = [
+              `## ${icon} Helm Validation ${conclusion === 'success' ? 'Passed' : 'Failed'}`,
+              '',
+              `| Setting | Value |`,
+              `|---------|-------|`,
+              `| Chart | \`${{ inputs.chart_path }}\` |`,
+              `| K8s version | \`${{ inputs.kubernetes_version }}\` |`,
+              `| Version check | \`${{ inputs.run_version_check }}\` |`,
+              '',
+              `See [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for detailed logs.`
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
