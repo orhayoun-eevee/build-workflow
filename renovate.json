@@ -8,7 +8,7 @@
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
   "automerge": false,
-  "enabledManagers": ["github-actions", "dockerfile", "custom.regex"],
+  "enabledManagers": ["github-actions", "dockerfile", "regex"],
   "packageRules": [
     {
       "matchManagers": ["github-actions"],
@@ -19,15 +19,15 @@
       "groupName": "docker base images"
     },
     {
-      "matchManagers": ["custom.regex"],
+      "matchManagers": ["regex"],
       "matchDepTypes": ["tool-version", "python-package"],
       "groupName": "validation toolchain"
     }
   ],
-  "customManagers": [
+  "regexManagers": [
     {
       "customType": "regex",
-      "managerFilePatterns": ["/docker\\/Dockerfile$/"],
+      "fileMatch": ["/docker\\/Dockerfile$/"],
       "matchStrings": ["helm-v(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)-linux-amd64\\.tar\\.gz"],
       "depNameTemplate": "helm/helm",
       "datasourceTemplate": "github-releases",
@@ -35,7 +35,7 @@
     },
     {
       "customType": "regex",
-      "managerFilePatterns": ["/docker\\/Dockerfile$/"],
+      "fileMatch": ["/docker\\/Dockerfile$/"],
       "matchStrings": ["helm plugin install https://github\\.com/helm-unittest/helm-unittest --version v(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"],
       "depNameTemplate": "helm-unittest/helm-unittest",
       "datasourceTemplate": "github-releases",
@@ -43,7 +43,7 @@
     },
     {
       "customType": "regex",
-      "managerFilePatterns": ["/docker\\/Dockerfile$/"],
+      "fileMatch": ["/docker\\/Dockerfile$/"],
       "matchStrings": ["kubeconform/releases/download/v(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)/kubeconform-linux-amd64\\.tar\\.gz"],
       "depNameTemplate": "yannh/kubeconform",
       "datasourceTemplate": "github-releases",
@@ -51,7 +51,7 @@
     },
     {
       "customType": "regex",
-      "managerFilePatterns": ["/docker\\/Dockerfile$/"],
+      "fileMatch": ["/docker\\/Dockerfile$/"],
       "matchStrings": ["chart-testing/releases/download/v(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)/chart-testing_[0-9]+\\.[0-9]+\\.[0-9]+_linux_amd64\\.tar\\.gz"],
       "depNameTemplate": "helm/chart-testing",
       "datasourceTemplate": "github-releases",
@@ -59,7 +59,7 @@
     },
     {
       "customType": "regex",
-      "managerFilePatterns": ["/docker\\/Dockerfile$/"],
+      "fileMatch": ["/docker\\/Dockerfile$/"],
       "matchStrings": ["yq/releases/download/v(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)/yq_linux_amd64"],
       "depNameTemplate": "mikefarah/yq",
       "datasourceTemplate": "github-releases",
@@ -67,7 +67,7 @@
     },
     {
       "customType": "regex",
-      "managerFilePatterns": ["/docker\\/Dockerfile$/"],
+      "fileMatch": ["/docker\\/Dockerfile$/"],
       "matchStrings": ["kube-linter/releases/download/v(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)/kube-linter-linux\\.tar\\.gz"],
       "depNameTemplate": "stackrox/kube-linter",
       "datasourceTemplate": "github-releases",
@@ -75,7 +75,7 @@
     },
     {
       "customType": "regex",
-      "managerFilePatterns": ["/docker\\/Dockerfile$/"],
+      "fileMatch": ["/docker\\/Dockerfile$/"],
       "matchStrings": ["yamllint==(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"],
       "depNameTemplate": "yamllint",
       "datasourceTemplate": "pypi",
@@ -83,7 +83,7 @@
     },
     {
       "customType": "regex",
-      "managerFilePatterns": ["/docker\\/Dockerfile$/"],
+      "fileMatch": ["/docker\\/Dockerfile$/"],
       "matchStrings": ["checkov==(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"],
       "depNameTemplate": "checkov",
       "datasourceTemplate": "pypi",
@@ -91,7 +91,7 @@
     },
     {
       "customType": "regex",
-      "managerFilePatterns": ["/docker\\/Dockerfile$/"],
+      "fileMatch": ["/docker\\/Dockerfile$/"],
       "matchStrings": ["yamale==(?<currentValue>[0-9]+\\.[0-9]+\\.[0-9]+)"],
       "depNameTemplate": "yamale",
       "datasourceTemplate": "pypi",
