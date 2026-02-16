@@ -12,15 +12,40 @@ on:
         required: true
         type: string
       scenarios_dir:
-        description: 'Path to scenario fixtures (relative to chart_path)'
+        description: 'Path to scenario fixtures (repo-relative)'
         required: false
         type: string
         default: 'tests/scenarios'
       snapshots_dir:
-        description: 'Path to snapshot files (relative to chart_path)'
+        description: 'Path to snapshot files (repo-relative)'
         required: false
         type: string
         default: 'tests/snapshots'
+      run_syntax:
+        description: 'Run Layer 1 (syntax + helm lint)'
+        required: false
+        type: boolean
+        default: true
+      run_schema:
+        description: 'Run Layer 2 (kubeconform over rendered scenarios)'
+        required: false
+        type: boolean
+        default: true
+      run_metadata:
+        description: 'Run Layer 3 (ct lint + version checks)'
+        required: false
+        type: boolean
+        default: true
+      run_tests:
+        description: 'Run Layer 4 (unit tests + snapshots + fail-cases)'
+        required: false
+        type: boolean
+        default: true
+      run_policy:
+        description: 'Run Layer 5 (Checkov + kube-linter)'
+        required: false
+        type: boolean
+        default: true
       target_branch:
         description: 'Base branch for version comparison'
         required: false
@@ -64,8 +89,13 @@ jobs:
         env:
           CHART_PATH: ${{ inputs.chart_path }}
           KUBERNETES_VERSION: ${{ inputs.kubernetes_version }}
-          SCENARIOS_DIR: ${{ inputs.chart_path }}/${{ inputs.scenarios_dir }}
-          SNAPSHOTS_DIR: ${{ inputs.chart_path }}/${{ inputs.snapshots_dir }}
+          SCENARIOS_DIR: ${{ inputs.scenarios_dir }}
+          SNAPSHOTS_DIR: ${{ inputs.snapshots_dir }}
+          RUN_SYNTAX: ${{ inputs.run_syntax }}
+          RUN_SCHEMA: ${{ inputs.run_schema }}
+          RUN_METADATA: ${{ inputs.run_metadata }}
+          RUN_TESTS: ${{ inputs.run_tests }}
+          RUN_POLICY: ${{ inputs.run_policy }}
           TARGET_BRANCH: ${{ inputs.target_branch }}
           RUN_VERSION_CHECK: ${{ inputs.run_version_check }}
           CHECKOV_EXTRA_ARGS: ${{ inputs.checkov_extra_args }}
