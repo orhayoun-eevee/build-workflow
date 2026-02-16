@@ -67,15 +67,12 @@ on:
         type: string
         default: 'ghcr.io/orhayoun-eevee/helm-validate:latest'
     secrets:
-      workflow_repo_token:
-        description: 'Optional token for cross-repo checkout'
-        required: false
       gh_app_id:
-        description: 'Optional GitHub App ID for minting installation token'
-        required: false
+        description: 'GitHub App ID for minting installation token'
+        required: true
       gh_app_private_key:
-        description: 'Optional GitHub App private key for minting installation token'
-        required: false
+        description: 'GitHub App private key for minting installation token'
+        required: true
 
 jobs:
   validate:
@@ -89,18 +86,8 @@ jobs:
         with:
           fetch-depth: 0  # Needed for version comparison and ct lint
 
-      - name: Detect app credentials
-        id: app-creds
-        run: |
-          if [ -n "${{ secrets.gh_app_id }}" ] && [ -n "${{ secrets.gh_app_private_key }}" ]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Mint app token for cross-repo checkout
         id: app-token
-        if: ${{ steps.app-creds.outputs.enabled == 'true' }}
         uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ secrets.gh_app_id }}
@@ -112,7 +99,7 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          token: ${{ steps.app-token.outputs.token || secrets.workflow_repo_token || github.token }}
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Resolve chart dependencies
         run: helm dependency build "${{ inputs.chart_path }}"
