@@ -31,5 +31,5 @@ jobs:
 
       - name: Validate renovate config
         run: |
-          npx --yes --package renovate -- renovate-config-validator --no-global renovate.json
-          npx --yes --package renovate -- renovate-config-validator --strict --no-global renovate.json
+          npx --yes --package renovate -- renovate-config-validator
+          npx --yes --package renovate -- renovate-config-validator --strict
