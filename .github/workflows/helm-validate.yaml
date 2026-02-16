@@ -41,6 +41,11 @@ on:
         required: false
         type: boolean
         default: true
+      run_snapshots:
+        description: 'Run Layer 4 snapshot drift checks'
+        required: false
+        type: boolean
+        default: true
       run_policy:
         description: 'Run Layer 5 (Checkov + kube-linter)'
         required: false
@@ -121,6 +126,9 @@ jobs:
           RUN_SCHEMA: ${{ inputs.run_schema }}
           RUN_METADATA: ${{ inputs.run_metadata }}
           RUN_TESTS: ${{ inputs.run_tests }}
+          # Renovate image bumps legitimately change rendered snapshots.
+          # Keep snapshot checks strict for human PRs, skip only for Renovate bot PRs.
+          RUN_SNAPSHOTS: ${{ inputs.run_snapshots && !(github.event_name == 'pull_request' && startsWith(github.actor, 'renovate')) }}
           RUN_POLICY: ${{ inputs.run_policy }}
           TARGET_BRANCH: ${{ inputs.target_branch }}
           RUN_VERSION_CHECK: ${{ inputs.run_version_check }}

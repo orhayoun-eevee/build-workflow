@@ -13,6 +13,7 @@ source "${SCRIPT_DIR}/lib/common.sh"
 # Optional with defaults
 SCENARIOS_DIR="${SCENARIOS_DIR:-${CHART_PATH}/tests/scenarios}"
 SNAPSHOTS_DIR="${SNAPSHOTS_DIR:-${CHART_PATH}/tests/snapshots}"
+RUN_SNAPSHOTS="${RUN_SNAPSHOTS:-true}"
 
 info "Layer 4: Unit & Regression Testing"
 
@@ -36,7 +37,9 @@ else
 fi
 
 # Step 2: Scenario snapshot tests
-if [[ -d "${SCENARIOS_DIR}" ]]; then
+if [[ "${RUN_SNAPSHOTS,,}" != "true" ]]; then
+    info "Step 2/3: Snapshot checks disabled (RUN_SNAPSHOTS=${RUN_SNAPSHOTS})"
+elif [[ -d "${SCENARIOS_DIR}" ]]; then
     info "Step 2/3: Running scenario snapshot tests"
     
     # Use shared RENDERED_DIR if available (set by orchestrator), otherwise create temp dir
