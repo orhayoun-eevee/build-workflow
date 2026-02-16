@@ -38,19 +38,19 @@ RUN wget -q https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeco
     && kubeconform -v
 
 # Install chart-testing (ct) 3.12.0
-RUN wget -q https://github.com/helm/chart-testing/releases/download/v3.12.0/chart-testing_3.12.0_linux_amd64.tar.gz \
+RUN wget -q https://github.com/helm/chart-testing/releases/download/v3.14.0/chart-testing_3.14.0_linux_amd64.tar.gz \
     && tar -xzf chart-testing_3.12.0_linux_amd64.tar.gz \
     && mv ct /usr/local/bin/ct \
     && rm chart-testing_3.12.0_linux_amd64.tar.gz \
     && ct version
 
 # Install yq 4.44.6
-RUN wget -q https://github.com/mikefarah/yq/releases/download/v4.44.6/yq_linux_amd64 -O /usr/local/bin/yq \
+RUN wget -q https://github.com/mikefarah/yq/releases/download/v4.52.4/yq_linux_amd64 -O /usr/local/bin/yq \
     && chmod +x /usr/local/bin/yq \
     && yq --version
 
 # Install kube-linter 0.7.0
-RUN wget -q https://github.com/stackrox/kube-linter/releases/download/v0.7.0/kube-linter-linux.tar.gz \
+RUN wget -q https://github.com/stackrox/kube-linter/releases/download/v0.8.1/kube-linter-linux.tar.gz \
     && tar -xzf kube-linter-linux.tar.gz \
     && mv kube-linter /usr/local/bin/kube-linter \
     && rm kube-linter-linux.tar.gz \
@@ -61,8 +61,8 @@ RUN wget -q https://github.com/stackrox/kube-linter/releases/download/v0.7.0/kub
 # - checkov: IaC security scanner
 # - yamale: YAML schema validator (required by chart-testing)
 RUN pip3 install --no-cache-dir --break-system-packages \
-    yamllint==1.35.1 \
-    checkov==3.2.357 \
+    yamllint==1.38.0 \
+    checkov==3.2.502 \
     yamale==6.1.0
 
 # Verify installations
