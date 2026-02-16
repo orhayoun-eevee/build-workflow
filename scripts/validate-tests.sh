@@ -23,7 +23,9 @@ check_command helm || exit 1
 if [[ -d "${CHART_PATH}/tests" ]] && find "${CHART_PATH}/tests" -name "*_test.yaml" -o -name "*_test.yml" | grep -q .; then
     info "Step 1/3: Running helm-unittest"
     
-    if helm unittest "${CHART_PATH}" --color; then
+    # Do not run parent chart test suites against vendored dependency charts.
+    # lib-chart is validated in helm-common-lib; here we validate only chart-specific contracts.
+    if helm unittest "${CHART_PATH}" --color --with-subchart=false; then
         success "helm-unittest passed"
     else
         error "helm-unittest failed"
