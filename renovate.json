@@ -8,7 +8,7 @@
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
   "automerge": false,
-  "enabledManagers": ["github-actions", "dockerfile", "regex"],
+  "enabledManagers": ["github-actions", "dockerfile", "custom.regex"],
   "packageRules": [
     {
       "matchManagers": ["github-actions"],
@@ -19,12 +19,12 @@
       "groupName": "docker base images"
     },
     {
-      "matchManagers": ["regex"],
+      "matchManagers": ["custom.regex"],
       "matchDepTypes": ["tool-version", "python-package"],
       "groupName": "validation toolchain"
     }
   ],
-  "regexManagers": [
+  "customManagers": [
     {
       "customType": "regex",
       "fileMatch": ["/docker\\/Dockerfile$/"],
