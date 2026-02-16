@@ -89,9 +89,18 @@ jobs:
         with:
           fetch-depth: 0  # Needed for version comparison and ct lint
 
+      - name: Detect app credentials
+        id: app-creds
+        run: |
+          if [ -n "${{ secrets.gh_app_id }}" ] && [ -n "${{ secrets.gh_app_private_key }}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Mint app token for cross-repo checkout
         id: app-token
-        if: ${{ secrets.gh_app_id != '' && secrets.gh_app_private_key != '' }}
+        if: ${{ steps.app-creds.outputs.enabled == 'true' }}
         uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ secrets.gh_app_id }}
