@@ -31,5 +31,5 @@ jobs:
 
       - name: Validate renovate config
         run: |
-          npx --yes --package renovate -- renovate-config-validator
-          npx --yes --package renovate -- renovate-config-validator --strict
+          docker run --rm -v "$PWD:/repo" -w /repo ghcr.io/renovatebot/renovate:latest renovate-config-validator
+          docker run --rm -v "$PWD:/repo" -w /repo ghcr.io/renovatebot/renovate:latest renovate-config-validator --strict
