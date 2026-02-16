@@ -93,6 +93,13 @@ jobs:
       - name: Resolve chart dependencies
         run: helm dependency build "${{ inputs.chart_path }}"
 
+      - name: Ensure helm-unittest plugin
+        run: |
+          if ! helm plugin list 2>/dev/null | awk 'NR>1 {print $1}' | grep -qx unittest; then
+            helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.7.2
+          fi
+          helm plugin list
+
       - name: Run validation pipeline
         env:
           CHART_PATH: ${{ inputs.chart_path }}
