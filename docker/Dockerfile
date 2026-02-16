@@ -21,14 +21,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /workspace
 
 # Install Helm 3.16.3
-RUN curl -fsSL https://get.helm.sh/helm-v3.16.3-linux-amd64.tar.gz -o helm.tar.gz \
+RUN curl -fsSL https://get.helm.sh/helm-v4.1.1-linux-amd64.tar.gz -o helm.tar.gz \
     && tar -zxvf helm.tar.gz \
     && mv linux-amd64/helm /usr/local/bin/helm \
     && rm -rf helm.tar.gz linux-amd64 \
     && helm version
 
 # Install helm-unittest plugin 0.7.2
-RUN helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.7.2
+RUN helm plugin install https://github.com/helm-unittest/helm-unittest --version v1.0.3
 
 # Install kubeconform 0.7.0
 RUN wget -q https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz \
@@ -63,7 +63,7 @@ RUN wget -q https://github.com/stackrox/kube-linter/releases/download/v0.7.0/kub
 RUN pip3 install --no-cache-dir --break-system-packages \
     yamllint==1.35.1 \
     checkov==3.2.357 \
-    yamale==5.2.1
+    yamale==6.1.0
 
 # Verify installations
 RUN echo "=== Tool versions ===" \
