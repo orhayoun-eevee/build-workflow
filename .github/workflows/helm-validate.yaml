@@ -90,6 +90,9 @@ jobs:
           path: .build-workflow
           token: ${{ secrets.workflow_repo_token || github.token }}
 
+      - name: Resolve chart dependencies
+        run: helm dependency build "${{ inputs.chart_path }}"
+
       - name: Run validation pipeline
         env:
           CHART_PATH: ${{ inputs.chart_path }}
