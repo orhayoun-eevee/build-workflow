@@ -90,6 +90,23 @@ my-chart-repo/
 └── Makefile                 # Local dev (see below)
 ```
 
+## Dependency Automation Policy
+
+This repository uses Renovate with scoped automerge for low-risk updates only:
+
+- `github-actions`: `digest`, `pin`, `pinDigest`, `patch`, `minor`
+- `dockerfile`: `digest`, `pin`, `pinDigest`, `patch`, `minor`
+- Tool pins via custom regex managers: `digest`, `pin`, `pinDigest`, `patch`, `minor`
+- `major` updates are disabled from automerge and require manual review
+
+Branch protection is expected to enforce:
+
+- PR required before merge
+- Required status checks must pass
+- Branch must be up to date before merge
+
+This guarantees automerge can only complete when CI is green.
+
 ### 2. Create scenario fixtures
 
 Every chart must have at least `minimal.yaml` and `full.yaml` in `tests/scenarios/`:
