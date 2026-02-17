@@ -32,7 +32,7 @@ jobs:
       target_branch: main
       run_version_check: true
       build_workflow_ref: "__BUILD_WORKFLOW_REF__"
-      docker_image: "ghcr.io/orhayoun-eevee/helm-validate:__BUILD_WORKFLOW_REF__"
+      docker_image: "ghcr.io/orhayoun-eevee/helm-validate:__BUILD_WORKFLOW_REF__@__HELM_VALIDATE_DIGEST__"
     secrets:
       gh_app_id: ${{ secrets.GHCR_AUTO_APP_ID }}
       gh_app_private_key: ${{ secrets.GHCR_AUTO_PKEY }}
