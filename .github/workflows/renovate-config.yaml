@@ -18,6 +18,7 @@ on:
       - '.github/renovate.json5'
       - '.github/workflows/renovate-config.yaml'
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read

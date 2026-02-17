@@ -277,7 +277,7 @@ make validate         # Run all 5 layers
 | `run_version_check` | boolean | No | `true` | Run version strictly-greater check |
 | `checkov_extra_args` | string | No | `""` | Extra args for Checkov |
 | `build_workflow_ref` | string | No | `main` | Ref (SHA/tag/branch) used for checking out `build-workflow` scripts/configs |
-| `docker_image` | string | No | `ghcr.io/orhayoun-eevee/helm-validate:latest` | Docker image to use |
+| `docker_image` | string | No | `ghcr.io/orhayoun-eevee/helm-validate@sha256:<digest>` | Docker image to use (immutable digest recommended) |
 
 **How it works:**
 1. Checks out the consumer repo and `build-workflow` at the caller-provided `build_workflow_ref`
@@ -331,7 +331,7 @@ jobs:
 
 **Triggers:** Push to tags matching `v*`, or manual `workflow_dispatch`.
 
-Published tags: `latest`, `X.Y.Z`, `X.Y`, `X`.
+Published tags: `X.Y.Z`, `X.Y`, `X`.
 
 ---
 
@@ -489,7 +489,7 @@ docker build -t helm-validate:local -f docker/Dockerfile docker/
 1. Update the version in `docker/Dockerfile`
 2. Rebuild and test: `docker build -t helm-validate:local -f docker/Dockerfile docker/`
 3. Publish flow:
-   - automatic `latest` publish on `main` when docker build inputs change
+   - automatic publish on `main` when docker build inputs change (consume by immutable digest)
    - automatic versioned publish on `v*` tag push
    - optional manual publish via `workflow_dispatch`
 

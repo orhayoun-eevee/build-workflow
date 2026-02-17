@@ -2,10 +2,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-BUILD_WORKFLOW_REF="${BUILD_WORKFLOW_REF:-0042a8575237d45861b99ce8dfb16d78f8007e33}"
+BUILD_WORKFLOW_REF="${BUILD_WORKFLOW_REF:-}"
 DRY_RUN=true
 
-REPOS=(radarr-helm sonarr-helm sabnzbd-helm transmission-helm)
+REPOS=(helm-common-lib radarr-helm sonarr-helm sabnzbd-helm transmission-helm)
 
 usage() {
 	cat <<USAGE
@@ -51,7 +51,13 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-TEMPLATE_ROOT="${ROOT}/build-workflow/templates/app-chart"
+if [[ -z "${BUILD_WORKFLOW_REF}" ]]; then
+	echo "Error: build-workflow ref is required. Set BUILD_WORKFLOW_REF or pass --ref <sha/tag/branch>." >&2
+	exit 2
+fi
+
+APP_TEMPLATE_ROOT="${ROOT}/build-workflow/templates/app-chart"
+LIB_TEMPLATE_ROOT="${ROOT}/build-workflow/templates/helm-common-lib"
 
 render_template() {
 	local src="$1"
@@ -86,6 +92,15 @@ for repo in "${REPOS[@]}"; do
 	[[ -z "${repo}" ]] && continue
 
 	case "${repo}" in
+	helm-common-lib)
+		repo_root="${ROOT}/${repo}"
+		if [[ ! -d "${repo_root}" ]]; then
+			echo "skip missing repo ${repo_root}" >&2
+			continue
+		fi
+		render_template "${LIB_TEMPLATE_ROOT}/.github/workflows/renovate-config.yaml" "${repo_root}/.github/workflows/renovate-config.yaml" "Helm Common Lib" "${repo}"
+		continue
+		;;
 	radarr-helm) chart_title="Radarr" ;;
 	sonarr-helm) chart_title="Sonarr" ;;
 	sabnzbd-helm) chart_title="Sabnzbd" ;;
@@ -102,11 +117,11 @@ for repo in "${REPOS[@]}"; do
 		continue
 	fi
 
-	render_template "${TEMPLATE_ROOT}/Makefile" "${repo_root}/Makefile" "${chart_title}" "${repo}"
-	render_template "${TEMPLATE_ROOT}/scripts/bump-version.sh" "${repo_root}/scripts/bump-version.sh" "${chart_title}" "${repo}"
-	render_template "${TEMPLATE_ROOT}/.github/workflows/on-pr.yaml" "${repo_root}/.github/workflows/on-pr.yaml" "${chart_title}" "${repo}"
-	render_template "${TEMPLATE_ROOT}/.github/workflows/on-tag.yaml" "${repo_root}/.github/workflows/on-tag.yaml" "${chart_title}" "${repo}"
-	render_template "${TEMPLATE_ROOT}/.github/workflows/renovate-config.yaml" "${repo_root}/.github/workflows/renovate-config.yaml" "${chart_title}" "${repo}"
-	render_template "${TEMPLATE_ROOT}/.github/workflows/renovate-snapshot-update.yaml" "${repo_root}/.github/workflows/renovate-snapshot-update.yaml" "${chart_title}" "${repo}"
-	render_template "${TEMPLATE_ROOT}/.github/workflows/scaffold-drift-check.yaml" "${repo_root}/.github/workflows/scaffold-drift-check.yaml" "${chart_title}" "${repo}"
+	render_template "${APP_TEMPLATE_ROOT}/Makefile" "${repo_root}/Makefile" "${chart_title}" "${repo}"
+	render_template "${APP_TEMPLATE_ROOT}/scripts/bump-version.sh" "${repo_root}/scripts/bump-version.sh" "${chart_title}" "${repo}"
+	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/on-pr.yaml" "${repo_root}/.github/workflows/on-pr.yaml" "${chart_title}" "${repo}"
+	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/on-tag.yaml" "${repo_root}/.github/workflows/on-tag.yaml" "${chart_title}" "${repo}"
+	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/renovate-config.yaml" "${repo_root}/.github/workflows/renovate-config.yaml" "${chart_title}" "${repo}"
+	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/renovate-snapshot-update.yaml" "${repo_root}/.github/workflows/renovate-snapshot-update.yaml" "${chart_title}" "${repo}"
+	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/scaffold-drift-check.yaml" "${repo_root}/.github/workflows/scaffold-drift-check.yaml" "${chart_title}" "${repo}"
 done
