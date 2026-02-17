@@ -8,20 +8,34 @@
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
   "automerge": false,
+  "platformAutomerge": true,
   "enabledManagers": ["github-actions", "dockerfile", "custom.regex"],
   "packageRules": [
     {
       "matchManagers": ["github-actions"],
-      "groupName": "github actions"
+      "groupName": "github actions",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["digest", "pin", "pinDigest", "patch", "minor"]
     },
     {
       "matchManagers": ["dockerfile"],
-      "groupName": "docker base images"
+      "groupName": "docker base images",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["digest", "pin", "pinDigest", "patch", "minor"]
     },
     {
       "matchManagers": ["custom.regex"],
       "matchDepTypes": ["tool-version", "python-package"],
-      "groupName": "validation toolchain"
+      "groupName": "validation toolchain",
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["digest", "pin", "pinDigest", "patch", "minor"]
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "enabled": false
     }
   ],
   "customManagers": [
