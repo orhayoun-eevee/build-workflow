@@ -1,0 +1,38 @@
+name: Validate Renovate Config
+
+on:
+  pull_request:
+    paths:
+      - 'renovate.json'
+      - 'renovate.json5'
+      - '.github/renovate.json'
+      - '.github/renovate.json5'
+      - '.github/workflows/renovate-config.yaml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'renovate.json'
+      - 'renovate.json5'
+      - '.github/renovate.json'
+      - '.github/renovate.json5'
+      - '.github/workflows/renovate-config.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RENOVATE_IMAGE: ghcr.io/renovatebot/renovate@sha256:02283d42a0fc5a887fd0987cf7e460ff5fd1f655829f8db2aa15ea12cc223d4e
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Validate renovate config
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo "${RENOVATE_IMAGE}" renovate-config-validator
+          docker run --rm -v "$PWD:/repo" -w /repo "${RENOVATE_IMAGE}" renovate-config-validator --strict

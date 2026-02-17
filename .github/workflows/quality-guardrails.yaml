@@ -65,3 +65,37 @@ jobs:
 
       - name: Run hadolint
         run: hadolint --failure-threshold error docker/Dockerfile
+
+      - name: Disallow mutable helm-validate image tags
+        run: |
+          set -euo pipefail
+          offending_files=$(grep -R -l "ghcr.io/orhayoun-eevee/helm-validate:latest" .github/workflows || true)
+          offending_files=$(echo "${offending_files}" | grep -Ev "docker-build\\.yaml|helm-validate\\.yaml|quality-guardrails\\.yaml" || true)
+          if [[ -n "${offending_files}" ]]; then
+            echo "Found mutable helm-validate image tags (:latest) in consumer workflows:"
+            echo "${offending_files}"
+            exit 1
+          fi
+
+      - name: Ensure Dockerfile download checksums are enforced
+        run: |
+          set -euo pipefail
+          required_vars=(
+            HELM_SHA256
+            KUBECONFORM_SHA256
+            CT_SHA256
+            YQ_SHA256
+            KUBE_LINTER_SHA256
+          )
+
+          for var in "${required_vars[@]}"; do
+            if ! grep -q "^ENV ${var}=" docker/Dockerfile; then
+              echo "Missing checksum variable in docker/Dockerfile: ${var}"
+              exit 1
+            fi
+          done
+
+          if [[ "$(grep -c 'sha256sum -c -' docker/Dockerfile)" -lt 5 ]]; then
+            echo "Expected checksum verification for all downloaded binaries."
+            exit 1
+          fi

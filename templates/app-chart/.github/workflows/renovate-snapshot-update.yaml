@@ -1,0 +1,60 @@
+name: Renovate Snapshot Update
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "values.yaml"
+
+permissions:
+  contents: write
+  packages: read
+
+jobs:
+  update-snapshots:
+    if: github.event_name == 'pull_request' && startsWith(github.actor, 'renovate')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        with:
+          app-id: ${{ secrets.GHCR_AUTO_APP_ID }}
+          private-key: ${{ secrets.GHCR_AUTO_PKEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Checkout PR branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Checkout build-workflow
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: orhayoun-eevee/build-workflow
+          path: .build-workflow
+          ref: __BUILD_WORKFLOW_REF__
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Build pinned validation image
+        run: make docker-build BUILD_WORKFLOW=.build-workflow DOCKER_IMAGE=helm-validate:renovate
+
+      - name: Regenerate snapshots
+        run: make snapshot-update BUILD_WORKFLOW=.build-workflow DOCKER_IMAGE=helm-validate:renovate
+
+      - name: Commit updated snapshots
+        run: |
+          if git diff --quiet -- tests/snapshots; then
+            echo "No snapshot changes to commit"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/snapshots
+          git commit -m "test(snapshot): refresh snapshots for renovate update"
+          git remote set-url origin "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git"
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"

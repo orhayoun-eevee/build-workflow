@@ -1,0 +1,53 @@
+name: Scaffold Drift Check
+
+on:
+  pull_request:
+    paths:
+      - 'Makefile'
+      - 'scripts/bump-version.sh'
+      - '.github/workflows/on-pr.yaml'
+      - '.github/workflows/on-tag.yaml'
+      - '.github/workflows/renovate-config.yaml'
+      - '.github/workflows/renovate-snapshot-update.yaml'
+      - '.github/workflows/scaffold-drift-check.yaml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'Makefile'
+      - 'scripts/bump-version.sh'
+      - '.github/workflows/on-pr.yaml'
+      - '.github/workflows/on-tag.yaml'
+      - '.github/workflows/renovate-config.yaml'
+      - '.github/workflows/renovate-snapshot-update.yaml'
+      - '.github/workflows/scaffold-drift-check.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout chart repo
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Checkout build-workflow
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: orhayoun-eevee/build-workflow
+          path: build-workflow
+          ref: __BUILD_WORKFLOW_REF__
+
+      - name: Verify scaffold sync
+        run: |
+          set -euo pipefail
+          cp build-workflow/scripts/sync-chart-scaffold.sh ./sync-chart-scaffold.sh
+          chmod +x ./sync-chart-scaffold.sh
+          ./sync-chart-scaffold.sh --repos __REPO_NAME__ --ref __BUILD_WORKFLOW_REF__ --root "$(pwd)/.."
+
+          if ! git diff --quiet -- .; then
+            echo "Scaffold drift detected. Run build-workflow/scripts/sync-chart-scaffold.sh --apply --repos __REPO_NAME__ --ref __BUILD_WORKFLOW_REF__."
+            git --no-pager diff -- .
+            exit 1
+          fi

@@ -66,6 +66,11 @@ on:
         required: false
         type: string
         default: 'ghcr.io/orhayoun-eevee/helm-validate:latest'
+      build_workflow_ref:
+        description: 'Ref (SHA/tag/branch) of build-workflow to checkout for scripts/configs'
+        required: false
+        type: string
+        default: 'main'
     secrets:
       gh_app_id:
         description: 'GitHub App ID for minting installation token'
@@ -99,6 +104,7 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
+          ref: ${{ inputs.build_workflow_ref }}
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Resolve chart dependencies
@@ -107,7 +113,7 @@ jobs:
       - name: Ensure helm-unittest plugin
         run: |
           if ! helm plugin list 2>/dev/null | awk 'NR>1 {print $1}' | grep -qx unittest; then
-            helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.7.2
+            helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.8.2
           fi
           helm plugin list
 

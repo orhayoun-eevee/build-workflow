@@ -22,6 +22,9 @@ jobs:
   release:
     name: Publish Helm Chart to GitHub OCI
     runs-on: ubuntu-latest
+    env:
+      YQ_VERSION: v4.52.4
+      YQ_SHA256: 0c4d965ea944b64b8fddaf7f27779ee3034e5693263786506ccd1c120f184e8c
     steps:
       # Checkout code with full history
       - name: Checkout code
@@ -33,12 +36,22 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
         with:
-          version: 'v3.16.3'
+          version: 'v3.20.0'
+
+      - name: Install yq
+        run: |
+          set -euo pipefail
+          curl -fsSL -o yq "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+          echo "${YQ_SHA256}  yq" | sha256sum -c -
+          chmod +x yq
+          sudo mv yq /usr/local/bin/yq
+          yq --version
 
       # Set chart path (defaults to '.' if not provided)
       - name: Set chart path
         id: chart_path
         run: |
+          set -euo pipefail
           # Handle both workflow_call (with inputs) and direct tag trigger (no inputs)
           CHART_PATH="${{ inputs.chart_path }}"
           if [ -z "$CHART_PATH" ] || [ "$CHART_PATH" = "null" ]; then
@@ -51,7 +64,7 @@ jobs:
       - name: Verify Chart.yaml version matches git tag
         working-directory: ${{ steps.chart_path.outputs.path }}
         run: |
-          set -e
+          set -euo pipefail
 
           # Get git tag (remove 'v' prefix if present)
           GIT_TAG="${GITHUB_REF#refs/tags/}"
@@ -88,17 +101,20 @@ jobs:
       - name: Build Helm dependencies
         working-directory: ${{ steps.chart_path.outputs.path }}
         run: |
+          set -euo pipefail
           helm dependency build
 
       # Package the Helm chart
       - name: Package Helm chart
         working-directory: ${{ steps.chart_path.outputs.path }}
         run: |
+          set -euo pipefail
           helm package .
 
       # Login to GitHub Container Registry
       - name: Login to GitHub Container Registry
         run: |
+          set -euo pipefail
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io \
             --username "${{ github.repository_owner }}" \
             --password-stdin
@@ -107,6 +123,7 @@ jobs:
       - name: Push chart to GitHub OCI
         working-directory: ${{ steps.chart_path.outputs.path }}
         run: |
+          set -euo pipefail
           CHART_NAME=$(yq eval '.name' Chart.yaml)
           CHART_VERSION=$(yq eval '.version' Chart.yaml)
           PACKAGE_FILE="${CHART_NAME}-${CHART_VERSION}.tgz"
