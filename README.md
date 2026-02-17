@@ -276,12 +276,10 @@ make validate         # Run all 5 layers
 | `target_branch` | string | No | `main` | Base branch for version comparison |
 | `run_version_check` | boolean | No | `true` | Run version strictly-greater check |
 | `checkov_extra_args` | string | No | `""` | Extra args for Checkov |
-| `build_workflow_ref` | string | No | `main` | Ref (SHA/tag/branch) used for checking out `build-workflow` scripts/configs |
-| `docker_image` | string | No | `ghcr.io/orhayoun-eevee/helm-validate@sha256:<digest>` | Docker image to use (immutable digest recommended) |
 
 **How it works:**
-1. Checks out the consumer repo and `build-workflow` at the caller-provided `build_workflow_ref`
-2. Runs inside the `docker_image` container
+1. Checks out the consumer repo and `build-workflow` at the same tag/ref as the called reusable workflow
+2. Runs inside the version-matched `ghcr.io/orhayoun-eevee/helm-validate:vX.Y.Z` container pinned in the reusable workflow
 3. Executes `validate-orchestrator.sh` which runs all 5 layers sequentially
 4. Posts a summary comment on the PR (pass/fail with settings table)
 
@@ -292,7 +290,6 @@ make validate         # Run all 5 layers
 **Purpose:** Package and publish a Helm chart to GitHub Container Registry (OCI).
 
 **Triggers:**
-- `push` to tags matching `v*` or `X.Y.Z` (direct tag-based release)
 - `workflow_call` (reusable from other repos)
 
 | Input | Type | Required | Default | Description |

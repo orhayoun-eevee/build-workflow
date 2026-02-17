@@ -1,10 +1,6 @@
 name: Release Helm Chart
 
 on:
-  push:
-    tags:
-      - 'v*'  # Trigger on tags starting with 'v'
-      - '[0-9]*.[0-9]*.[0-9]*'  # Trigger on semantic version tags
   workflow_call:
     inputs:
       chart_path:
@@ -52,9 +48,8 @@ jobs:
         id: chart_path
         run: |
           set -euo pipefail
-          # Handle both workflow_call (with inputs) and direct tag trigger (no inputs)
           CHART_PATH="${{ inputs.chart_path }}"
-          if [ -z "$CHART_PATH" ] || [ "$CHART_PATH" = "null" ]; then
+          if [ -z "${CHART_PATH}" ] || [ "${CHART_PATH}" = "null" ]; then
             CHART_PATH="."
           fi
           echo "path=${CHART_PATH}" >> "${GITHUB_OUTPUT}"

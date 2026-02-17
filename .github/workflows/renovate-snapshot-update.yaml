@@ -3,10 +3,6 @@ name: Renovate Snapshot Update
 on:
   workflow_call:
     inputs:
-      build_workflow_ref:
-        description: 'Ref (SHA/tag/branch) of build-workflow to checkout for scripts/configs'
-        required: true
-        type: string
       snapshots_dir:
         description: 'Path to snapshots directory in caller repo'
         required: false
@@ -45,12 +41,27 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
+      - name: Resolve called workflow ref
+        id: workflow-ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow_ref="${{ github.workflow_ref }}"
+          ref="${workflow_ref##*@}"
+          ref="${ref#refs/tags/}"
+          ref="${ref#refs/heads/}"
+          if [[ -z "${ref}" ]]; then
+            echo "Unable to resolve build-workflow ref from github.workflow_ref=${workflow_ref}"
+            exit 1
+          fi
+          echo "ref=${ref}" >> "${GITHUB_OUTPUT}"
+
       - name: Checkout build-workflow
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: ${{ inputs.build_workflow_ref }}
+          ref: ${{ steps.workflow-ref.outputs.ref }}
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Build pinned validation image

@@ -61,16 +61,6 @@ on:
         required: false
         type: string
         default: ''
-      docker_image:
-        description: 'Docker image to use for validation'
-        required: false
-        type: string
-        default: 'ghcr.io/orhayoun-eevee/helm-validate:v0.1.0@sha256:f63114842c9234761efbd9f8a16a86b188fd9c8c14152f40c9e84c7fa29b39a7'
-      build_workflow_ref:
-        description: 'Ref (SHA/tag/branch) of build-workflow to checkout for scripts/configs'
-        required: false
-        type: string
-        default: 'v0.1.0'
     secrets:
       gh_app_id:
         description: 'GitHub App ID for minting installation token'
@@ -83,7 +73,7 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     container:
-      image: ${{ inputs.docker_image }}
+      image: ghcr.io/orhayoun-eevee/helm-validate:v0.1.1
 
     steps:
       - name: Checkout repository
@@ -99,12 +89,27 @@ jobs:
           private-key: ${{ secrets.gh_app_private_key }}
           owner: ${{ github.repository_owner }}
 
+      - name: Resolve called workflow ref
+        id: workflow-ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow_ref="${{ github.workflow_ref }}"
+          ref="${workflow_ref##*@}"
+          ref="${ref#refs/tags/}"
+          ref="${ref#refs/heads/}"
+          if [[ -z "${ref}" ]]; then
+            echo "Unable to resolve build-workflow ref from github.workflow_ref=${workflow_ref}"
+            exit 1
+          fi
+          echo "ref=${ref}" >> "${GITHUB_OUTPUT}"
+
       - name: Checkout build-workflow (validation framework)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: ${{ inputs.build_workflow_ref }}
+          ref: ${{ steps.workflow-ref.outputs.ref }}
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Resolve chart dependencies
