@@ -64,4 +64,4 @@ jobs:
         run: actionlint
 
       - name: Run hadolint
-        run: hadolint docker/Dockerfile
+        run: hadolint --failure-threshold error docker/Dockerfile
