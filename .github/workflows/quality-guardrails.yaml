@@ -70,7 +70,7 @@ jobs:
         run: |
           set -euo pipefail
           offending_files=$(grep -R -l "ghcr.io/orhayoun-eevee/helm-validate:latest" .github/workflows || true)
-          offending_files=$(echo "${offending_files}" | grep -Ev "docker-build\\.yaml|helm-validate\\.yaml|quality-guardrails\\.yaml" || true)
+          offending_files=$(echo "${offending_files}" | grep -Ev "quality-guardrails\\.yaml" || true)
           if [[ -n "${offending_files}" ]]; then
             echo "Found mutable helm-validate image tags (:latest) in consumer workflows:"
             echo "${offending_files}"
