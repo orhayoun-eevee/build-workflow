@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILD_WORKFLOW_REF="${BUILD_WORKFLOW_REF:-}"
+HELM_VALIDATE_DIGEST="${HELM_VALIDATE_DIGEST:-sha256:f63114842c9234761efbd9f8a16a86b188fd9c8c14152f40c9e84c7fa29b39a7}"
 DRY_RUN=true
 
 REPOS=(helm-common-lib radarr-helm sonarr-helm sabnzbd-helm transmission-helm)
@@ -10,11 +11,12 @@ REPOS=(helm-common-lib radarr-helm sonarr-helm sabnzbd-helm transmission-helm)
 usage() {
 	cat <<USAGE
 Usage:
-  $0 [--apply] [--ref <build-workflow-ref>] [--repos <comma-separated>] [--root <workspace-root>]
+  $0 [--apply] [--ref <build-workflow-ref>] [--image-digest <sha256:...>] [--repos <comma-separated>] [--root <workspace-root>]
 
 Options:
   --apply                  Write files (default is dry-run)
   --ref <sha/tag/branch>   build-workflow ref to inject in workflows
+  --image-digest <sha256>  helm-validate image digest to inject in on-pr workflows
   --repos <a,b,c>          Limit sync to selected app repos
   --root <path>            Workspace root containing repo directories
 USAGE
@@ -37,6 +39,10 @@ while [[ $# -gt 0 ]]; do
 		;;
 	--repos)
 		IFS=',' read -r -a REPOS <<<"$2"
+		shift 2
+		;;
+	--image-digest)
+		HELM_VALIDATE_DIGEST="$2"
 		shift 2
 		;;
 	--root)
@@ -67,6 +73,7 @@ render_template() {
 
 	sed \
 		-e "s/__BUILD_WORKFLOW_REF__/${BUILD_WORKFLOW_REF}/g" \
+		-e "s/__HELM_VALIDATE_DIGEST__/${HELM_VALIDATE_DIGEST}/g" \
 		-e "s/__CHART_TITLE__/${chart_title}/g" \
 		-e "s/__REPO_NAME__/${repo_name}/g" \
 		"${src}" >"${dest}.tmp"

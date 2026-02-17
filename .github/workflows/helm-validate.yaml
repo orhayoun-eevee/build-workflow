@@ -65,7 +65,7 @@ on:
         description: 'Docker image to use for validation'
         required: false
         type: string
-        default: 'ghcr.io/orhayoun-eevee/helm-validate:v0.1.0'
+        default: 'ghcr.io/orhayoun-eevee/helm-validate:v0.1.0@sha256:f63114842c9234761efbd9f8a16a86b188fd9c8c14152f40c9e84c7fa29b39a7'
       build_workflow_ref:
         description: 'Ref (SHA/tag/branch) of build-workflow to checkout for scripts/configs'
         required: false
