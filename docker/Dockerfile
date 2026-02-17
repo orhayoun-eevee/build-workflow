@@ -37,11 +37,11 @@ RUN wget -q https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeco
     && rm kubeconform-linux-amd64.tar.gz \
     && kubeconform -v
 
-# Install chart-testing (ct) 3.12.0
-RUN wget -q https://github.com/helm/chart-testing/releases/download/v3.12.0/chart-testing_3.12.0_linux_amd64.tar.gz \
-    && tar -xzf chart-testing_3.12.0_linux_amd64.tar.gz \
+# Install chart-testing (ct) 3.14.0
+RUN wget -q https://github.com/helm/chart-testing/releases/download/v3.14.0/chart-testing_3.14.0_linux_amd64.tar.gz \
+    && tar -xzf chart-testing_3.14.0_linux_amd64.tar.gz \
     && mv ct /usr/local/bin/ct \
-    && rm chart-testing_3.12.0_linux_amd64.tar.gz \
+    && rm chart-testing_3.14.0_linux_amd64.tar.gz \
     && ct version
 
 # Install yq 4.44.6
