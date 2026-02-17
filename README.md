@@ -27,6 +27,7 @@ build-workflow/
 │   ├── release-chart.yaml     # Reusable: publish chart to OCI registry
 │   ├── docker-build.yaml      # Internal: build & push the Docker image
 │   ├── docker-pr-smoke.yaml   # Internal: PR smoke build for Dockerfile changes
+│   ├── pr-required-checks.yaml # Internal: always-on PR gate for branch protection
 │   └── quality-guardrails.yaml # Internal: static lint checks for scripts/workflows/Dockerfile
 ├── docs/
 │   └── workflow-trigger-matrix.md # Trigger ownership and automation matrix
@@ -114,8 +115,11 @@ This repository uses Renovate with scoped automerge for low-risk updates only:
 Branch protection is expected to enforce:
 
 - PR required before merge
-- Required status checks must pass
+- Required status checks must pass (require only: `required-checks`)
 - Branch must be up to date before merge
+
+Do not require path-filtered workflow checks directly. Use the always-on
+`required-checks` gate from `.github/workflows/pr-required-checks.yaml`.
 
 This guarantees automerge can only complete when CI is green.
 

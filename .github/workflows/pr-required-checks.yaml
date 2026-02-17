@@ -1,0 +1,167 @@
+name: PR Required Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  RENOVATE_IMAGE: ghcr.io/renovatebot/renovate@sha256:02283d42a0fc5a887fd0987cf7e460ff5fd1f655829f8db2aa15ea12cc223d4e
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      run_guardrails: ${{ steps.filter.outputs.run_guardrails }}
+      run_docker_smoke: ${{ steps.filter.outputs.run_docker_smoke }}
+      run_renovate_validation: ${{ steps.filter.outputs.run_renovate_validation }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: filter
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          head_sha="${{ github.event.pull_request.head.sha }}"
+
+          changed_files="$(git diff --name-only "${base_sha}" "${head_sha}")"
+
+          run_guardrails=false
+          run_docker_smoke=false
+          run_renovate_validation=false
+
+          if grep -Eq '^(scripts/|\.github/workflows/|docker/Dockerfile)' <<<"${changed_files}"; then
+            run_guardrails=true
+          fi
+
+          if grep -Eq '^(docker/|\.github/workflows/docker-build\.yaml|\.github/workflows/helm-validate\.yaml)' <<<"${changed_files}"; then
+            run_docker_smoke=true
+          fi
+
+          if grep -Eq '^(renovate\.json|renovate\.json5|\.github/renovate\.json|\.github/renovate\.json5|\.github/workflows/renovate-config\.yaml)' <<<"${changed_files}"; then
+            run_renovate_validation=true
+          fi
+
+          {
+            echo "run_guardrails=${run_guardrails}"
+            echo "run_docker_smoke=${run_docker_smoke}"
+            echo "run_renovate_validation=${run_renovate_validation}"
+          } >> "${GITHUB_OUTPUT}"
+
+  quality-guardrails:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run_guardrails == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install shell and workflow linters
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+          SHFMT_VERSION=v3.11.0
+          curl -fsSL -o shfmt "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64"
+          chmod +x shfmt
+          sudo mv shfmt /usr/local/bin/shfmt
+          shfmt --version
+
+          ACTIONLINT_VERSION=v1.7.8
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION#v}_linux_amd64.tar.gz" -o actionlint.tar.gz
+          tar -xzf actionlint.tar.gz actionlint
+          chmod +x actionlint
+          sudo mv actionlint /usr/local/bin/actionlint
+
+          HADOLINT_VERSION=v2.12.0
+          curl -fsSL -o hadolint "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64"
+          chmod +x hadolint
+          sudo mv hadolint /usr/local/bin/hadolint
+
+      - name: Run shellcheck
+        run: |
+          mapfile -t script_files < <(find scripts -type f -name '*.sh')
+          if [ "${#script_files[@]}" -eq 0 ]; then
+            echo "No shell scripts found"
+            exit 0
+          fi
+          shellcheck "${script_files[@]}"
+
+      - name: Run shfmt (check mode)
+        run: shfmt -d scripts
+
+      - name: Run actionlint
+        run: actionlint
+
+      - name: Run hadolint
+        run: hadolint --failure-threshold error docker/Dockerfile
+
+  docker-build-smoke:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run_docker_smoke == 'true'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Build helm-validate image (smoke test)
+        run: docker build -t helm-validate:pr-smoke ./docker
+
+  renovate-config-validation:
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run_renovate_validation == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Validate renovate config
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo "${RENOVATE_IMAGE}" renovate-config-validator
+          docker run --rm -v "$PWD:/repo" -w /repo "${RENOVATE_IMAGE}" renovate-config-validator --strict
+
+  required-checks:
+    name: required-checks
+    runs-on: ubuntu-latest
+    needs:
+      - detect-changes
+      - quality-guardrails
+      - docker-build-smoke
+      - renovate-config-validation
+    if: always()
+    steps:
+      - name: Validate required job results
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          declare -A job_results=(
+            ["quality-guardrails"]="${{ needs.quality-guardrails.result }}"
+            ["docker-build-smoke"]="${{ needs.docker-build-smoke.result }}"
+            ["renovate-config-validation"]="${{ needs.renovate-config-validation.result }}"
+          )
+
+          failed=0
+          for job in "${!job_results[@]}"; do
+            result="${job_results[$job]}"
+            echo "${job}: ${result}"
+            if [[ "${result}" == "failure" || "${result}" == "cancelled" ]]; then
+              failed=1
+            fi
+          done
+
+          if [[ "${failed}" -ne 0 ]]; then
+            echo "One or more required PR checks failed."
+            exit 1
+          fi
+
+          echo "All required PR checks passed."

@@ -6,6 +6,7 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 
 | Workflow | Trigger | Automatic | Purpose |
 |---|---|---|---|
+| `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main` (no path filter) | Yes | Single always-present required gate; conditionally runs guardrails/docker-smoke/renovate validation |
 | `.github/workflows/docker-pr-smoke.yaml` | `pull_request` to `main` when `docker/**` or docker workflow files change | Yes | Smoke-build `docker/Dockerfile` before merge |
 | `.github/workflows/docker-build.yaml` | `push` to `main` (docker image changes), `push` tags `v*`, `workflow_dispatch` | Yes (push/tag), Manual (`workflow_dispatch`) | Build and push `ghcr.io/<owner>/helm-validate` |
 | `.github/workflows/helm-validate.yaml` | `workflow_call` only | Indirect | Reusable 5-layer Helm validation pipeline |
@@ -36,3 +37,5 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 - Chart repos pin reusable workflows to a specific `build-workflow` commit SHA for deterministic CI.
 - If reusable workflow behavior must change globally, update `build-workflow` first, then bump pinned SHAs in all chart repos.
 - Snapshot-update workflows are intentionally scoped to Renovate PRs touching `values.yaml` to avoid self-mutating non-Renovate PRs.
+- Branch protection for `main` should require only the `required-checks` status from `.github/workflows/pr-required-checks.yaml`.
+- Do not mark path-filtered workflows as required checks; skipped path-filtered checks can block merges as pending.
