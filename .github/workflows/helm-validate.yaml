@@ -89,27 +89,12 @@ jobs:
           private-key: ${{ secrets.gh_app_private_key }}
           owner: ${{ github.repository_owner }}
 
-      - name: Resolve called workflow ref
-        id: workflow-ref
-        shell: bash
-        run: |
-          set -euo pipefail
-          workflow_ref="${{ github.workflow_ref }}"
-          ref="${workflow_ref##*@}"
-          ref="${ref#refs/tags/}"
-          ref="${ref#refs/heads/}"
-          if [[ -z "${ref}" ]]; then
-            echo "Unable to resolve build-workflow ref from github.workflow_ref=${workflow_ref}"
-            exit 1
-          fi
-          echo "ref=${ref}" >> "${GITHUB_OUTPUT}"
-
       - name: Checkout build-workflow (validation framework)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: ${{ steps.workflow-ref.outputs.ref }}
+          ref: v0.1.1
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Resolve chart dependencies
