@@ -145,7 +145,7 @@ jobs:
 
           if [[ -d "${CHART_PATH}/tests" ]]; then
             unit_test_files=$(find "${CHART_PATH}/tests" -type f -name "*_test.yaml" | wc -l | tr -d ' ')
-            unit_test_assertions=$(grep -R --include='*_test.yaml' -E '^[[:space:]]*- it:' "${CHART_PATH}/tests" | wc -l | tr -d ' ' || true)
+            unit_test_assertions=$(grep -R -c --include='*_test.yaml' -E '^[[:space:]]*- it:' "${CHART_PATH}/tests" | awk -F: '{sum += $NF} END {print sum + 0}')
           fi
 
           if [[ -d "${SCENARIOS_DIR}" ]]; then
@@ -157,9 +157,9 @@ jobs:
           fi
 
           if [[ -f "${CHART_PATH}/.checkov.yaml" ]]; then
-            checkov_skip_count=$(grep -E '^[[:space:]]*-[[:space:]]*CKV_' "${CHART_PATH}/.checkov.yaml" | wc -l | tr -d ' ' || true)
+            checkov_skip_count=$(grep -c -E '^[[:space:]]*-[[:space:]]*CKV_' "${CHART_PATH}/.checkov.yaml" || true)
           elif [[ -f ".checkov.yaml" ]]; then
-            checkov_skip_count=$(grep -E '^[[:space:]]*-[[:space:]]*CKV_' ".checkov.yaml" | wc -l | tr -d ' ' || true)
+            checkov_skip_count=$(grep -c -E '^[[:space:]]*-[[:space:]]*CKV_' ".checkov.yaml" || true)
           fi
 
           {
