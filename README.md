@@ -158,7 +158,7 @@ on:
 
 jobs:
   validate:
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@main
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@<pinned-commit-sha>
     with:
       chart_path: .
       kubernetes_version: "1.30.0"
@@ -307,7 +307,7 @@ on:
 
 jobs:
   release:
-    uses: orhayoun-eevee/build-workflow/.github/workflows/release-chart.yaml@main
+    uses: orhayoun-eevee/build-workflow/.github/workflows/release-chart.yaml@<pinned-commit-sha>
     with:
       chart_path: .
     permissions:
