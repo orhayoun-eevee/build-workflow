@@ -60,15 +60,18 @@ jobs:
         run: make snapshot-update BUILD_WORKFLOW=.build-workflow DOCKER_IMAGE=helm-validate:renovate
 
       - name: Commit updated snapshots
+        env:
+          SNAPSHOTS_DIR: ${{ inputs.snapshots_dir }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          if git diff --quiet -- "${{ inputs.snapshots_dir }}"; then
+          if git diff --quiet -- "${SNAPSHOTS_DIR}"; then
             echo "No snapshot changes to commit"
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "${{ inputs.snapshots_dir }}"
+          git add "${SNAPSHOTS_DIR}"
           git commit -m "test(snapshot): refresh snapshots for renovate update"
           git remote set-url origin "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git"
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          git push origin "HEAD:${PR_HEAD_REF}"
