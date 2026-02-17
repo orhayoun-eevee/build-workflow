@@ -276,10 +276,11 @@ make validate         # Run all 5 layers
 | `target_branch` | string | No | `main` | Base branch for version comparison |
 | `run_version_check` | boolean | No | `true` | Run version strictly-greater check |
 | `checkov_extra_args` | string | No | `""` | Extra args for Checkov |
+| `build_workflow_ref` | string | No | `main` | Ref (SHA/tag/branch) used for checking out `build-workflow` scripts/configs |
 | `docker_image` | string | No | `ghcr.io/orhayoun-eevee/helm-validate:latest` | Docker image to use |
 
 **How it works:**
-1. Checks out the consumer repo and `build-workflow`
+1. Checks out the consumer repo and `build-workflow` at the caller-provided `build_workflow_ref`
 2. Runs inside the `docker_image` container
 3. Executes `validate-orchestrator.sh` which runs all 5 layers sequentially
 4. Posts a summary comment on the PR (pass/fail with settings table)

@@ -1,0 +1,36 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: pr-validation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  validate:
+    name: Validate __CHART_TITLE__ Chart
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@__BUILD_WORKFLOW_REF__
+    with:
+      chart_path: .
+      kubernetes_version: "1.30.0"
+      scenarios_dir: tests/scenarios
+      snapshots_dir: tests/snapshots
+      run_syntax: true
+      run_schema: true
+      run_metadata: true
+      run_tests: true
+      run_policy: true
+      target_branch: main
+      run_version_check: true
+    secrets:
+      gh_app_id: ${{ secrets.GHCR_AUTO_APP_ID }}
+      gh_app_private_key: ${{ secrets.GHCR_AUTO_PKEY }}
