@@ -17,7 +17,8 @@ build-workflow/
 ├── .github/workflows/
 │   ├── helm-validate.yaml     # Reusable: 5-layer validation pipeline
 │   ├── release-chart.yaml     # Reusable: publish chart to OCI registry
-│   └── docker-build.yaml      # Internal: build & push the Docker image
+│   ├── docker-build.yaml      # Internal: build & push the Docker image
+│   └── docker-pr-smoke.yaml   # Internal: PR smoke build for Dockerfile changes
 ├── scripts/
 │   ├── lib/
 │   │   └── common.sh              # Shared utilities (logging, colors, semver)
@@ -26,15 +27,15 @@ build-workflow/
 │   ├── validate-schema.sh         # Layer 2: kubeconform
 │   ├── validate-metadata.sh       # Layer 3: chart-testing (ct lint)
 │   ├── validate-tests.sh          # Layer 4: helm-unittest + snapshots
-│   └── validate-policy.sh         # Layer 5: Checkov + kube-linter
+│   ├── validate-policy.sh         # Layer 5: Checkov + kube-linter
+│   └── update-snapshots.sh        # Shared snapshot regeneration helper
 ├── configs/
 │   ├── yamllint.yaml              # yamllint rules
 │   ├── ct-default.yaml            # chart-testing defaults
 │   ├── chart_schema.yaml          # Chart.yaml schema for ct
 │   └── kube-linter-default.yaml   # kube-linter default config
 └── docker/
-    ├── Dockerfile                 # All tools in one image
-    └── .tool-versions             # Pinned tool versions reference
+    └── Dockerfile                 # All tools in one image (single source of truth)
 ```
 
 ---
@@ -223,17 +224,8 @@ test: deps ## Run helm-unittest
 	@$(DOCKER_RUN) -c "helm unittest $(CHART_PATH) --color"
 
 snapshot-update: deps ## Regenerate all scenario snapshots
-	@mkdir -p $(SNAPSHOTS_DIR)
-	@$(DOCKER_RUN) -c '\
-		for scenario in $(SCENARIOS_DIR)/*.yaml; do \
-			name=$$(basename "$$scenario" .yaml); \
-			echo "Updating snapshot: $$name"; \
-			helm template test-release $(CHART_PATH) \
-				--values "$$scenario" \
-				--kube-version $(KUBERNETES_VERSION) \
-				> $(SNAPSHOTS_DIR)/$$name.yaml; \
-		done; \
-		echo "Snapshots updated. Review with: make snapshot-diff"'
+	@$(DOCKER_RUN) /opt/build-workflow/scripts/update-snapshots.sh
+	@echo "Snapshots updated. Review with: make snapshot-diff"
 
 snapshot-diff: ## Show snapshot differences
 	@git diff --stat $(SNAPSHOTS_DIR)/ || true
@@ -468,8 +460,6 @@ The Docker image bundles all validation tools at pinned versions for consistency
 | yamllint | 1.35.1 | YAML formatting linter |
 | yq | 4.44.6 | YAML processor |
 
-Full version manifest: `docker/.tool-versions`
-
 ### Build locally
 
 ```bash
@@ -479,9 +469,8 @@ docker build -t helm-validate:local -f docker/Dockerfile docker/
 ### Updating tool versions
 
 1. Update the version in `docker/Dockerfile`
-2. Update `docker/.tool-versions` to match
-3. Rebuild and test: `docker build -t helm-validate:local -f docker/Dockerfile docker/`
-4. Tag and push: the `docker-build.yaml` workflow handles this on tag push
+2. Rebuild and test: `docker build -t helm-validate:local -f docker/Dockerfile docker/`
+3. Tag and push: the `docker-build.yaml` workflow handles this on tag push
 
 ---
 
