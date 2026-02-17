@@ -37,52 +37,52 @@ LAYERS_RUN=()
 
 # Run a single layer with timing
 run_layer() {
-    local layer_id="$1"
-    local layer_name="$2"
-    local script_name="$3"
+	local layer_id="$1"
+	local layer_name="$2"
+	local script_name="$3"
 
-    info "========================================="
-    info "Running ${layer_name}"
-    info "========================================="
+	info "========================================="
+	info "Running ${layer_name}"
+	info "========================================="
 
-    local start_time
-    start_time=$(date +%s)
+	local start_time
+	start_time=$(date +%s)
 
-    if "${SCRIPT_DIR}/${script_name}"; then
-        local duration=$(( $(date +%s) - start_time ))
-        DURATIONS[$layer_id]=$duration
-        LAYERS_RUN+=("$layer_id")
-        success "${layer_name} completed in ${duration}s"
-        return 0
-    else
-        local duration=$(( $(date +%s) - start_time ))
-        DURATIONS[$layer_id]=$duration
-        LAYERS_RUN+=("$layer_id")
-        error "${layer_name} failed after ${duration}s"
-        return 1
-    fi
+	if "${SCRIPT_DIR}/${script_name}"; then
+		local duration=$(($(date +%s) - start_time))
+		DURATIONS[$layer_id]=$duration
+		LAYERS_RUN+=("$layer_id")
+		success "${layer_name} completed in ${duration}s"
+		return 0
+	else
+		local duration=$(($(date +%s) - start_time))
+		DURATIONS[$layer_id]=$duration
+		LAYERS_RUN+=("$layer_id")
+		error "${layer_name} failed after ${duration}s"
+		return 1
+	fi
 }
 
 run_or_skip_layer() {
-    local layer_id="$1"
-    local layer_name="$2"
-    local script_name="$3"
-    local enabled="$4"
+	local layer_id="$1"
+	local layer_name="$2"
+	local script_name="$3"
+	local enabled="$4"
 
-    local enabled_lower
-    enabled_lower=$(echo "${enabled}" | tr '[:upper:]' '[:lower:]')
+	local enabled_lower
+	enabled_lower=$(echo "${enabled}" | tr '[:upper:]' '[:lower:]')
 
-    if [[ "${enabled_lower}" == "true" ]]; then
-        run_layer "${layer_id}" "${layer_name}" "${script_name}" || return 1
-        RESULTS[$layer_id]="PASS"
-    else
-        info "========================================="
-        info "Skipping ${layer_name} (disabled)"
-        info "========================================="
-        DURATIONS[$layer_id]=0
-        RESULTS[$layer_id]="SKIPPED"
-        LAYERS_RUN+=("$layer_id")
-    fi
+	if [[ "${enabled_lower}" == "true" ]]; then
+		run_layer "${layer_id}" "${layer_name}" "${script_name}" || return 1
+		RESULTS[$layer_id]="PASS"
+	else
+		info "========================================="
+		info "Skipping ${layer_name} (disabled)"
+		info "========================================="
+		DURATIONS[$layer_id]=0
+		RESULTS[$layer_id]="SKIPPED"
+		LAYERS_RUN+=("$layer_id")
+	fi
 }
 
 # Pipeline header
@@ -91,11 +91,26 @@ info "Chart: ${CHART_PATH}"
 info "Kubernetes version: ${KUBERNETES_VERSION}"
 
 # Run layers sequentially with fast-fail
-run_or_skip_layer "L1" "Layer 1: Syntax & Structure" "validate-syntax.sh" "${RUN_SYNTAX}"   || { error "Stopped at Layer 1"; exit 1; }
-run_or_skip_layer "L2" "Layer 2: Schema Validation"  "validate-schema.sh" "${RUN_SCHEMA}"   || { error "Stopped at Layer 2"; exit 1; }
-run_or_skip_layer "L3" "Layer 3: Metadata & Version" "validate-metadata.sh" "${RUN_METADATA}" || { error "Stopped at Layer 3"; exit 1; }
-run_or_skip_layer "L4" "Layer 4: Tests & Snapshots"  "validate-tests.sh" "${RUN_TESTS}"    || { error "Stopped at Layer 4"; exit 1; }
-run_or_skip_layer "L5" "Layer 5: Policy Enforcement" "validate-policy.sh" "${RUN_POLICY}"   || { error "Stopped at Layer 5"; exit 1; }
+run_or_skip_layer "L1" "Layer 1: Syntax & Structure" "validate-syntax.sh" "${RUN_SYNTAX}" || {
+	error "Stopped at Layer 1"
+	exit 1
+}
+run_or_skip_layer "L2" "Layer 2: Schema Validation" "validate-schema.sh" "${RUN_SCHEMA}" || {
+	error "Stopped at Layer 2"
+	exit 1
+}
+run_or_skip_layer "L3" "Layer 3: Metadata & Version" "validate-metadata.sh" "${RUN_METADATA}" || {
+	error "Stopped at Layer 3"
+	exit 1
+}
+run_or_skip_layer "L4" "Layer 4: Tests & Snapshots" "validate-tests.sh" "${RUN_TESTS}" || {
+	error "Stopped at Layer 4"
+	exit 1
+}
+run_or_skip_layer "L5" "Layer 5: Policy Enforcement" "validate-policy.sh" "${RUN_POLICY}" || {
+	error "Stopped at Layer 5"
+	exit 1
+}
 
 # Summary (only reached when all layers pass)
 info "========================================="
@@ -104,12 +119,12 @@ info "========================================="
 
 TOTAL_DURATION=0
 for layer in "${LAYERS_RUN[@]}"; do
-    if [[ "${RESULTS[$layer]}" == "SKIPPED" ]]; then
-        warn "${layer}: SKIPPED"
-    else
-        success "${layer}: PASS (${DURATIONS[$layer]}s)"
-        TOTAL_DURATION=$((TOTAL_DURATION + DURATIONS[$layer]))
-    fi
+	if [[ "${RESULTS[$layer]}" == "SKIPPED" ]]; then
+		warn "${layer}: SKIPPED"
+	else
+		success "${layer}: PASS (${DURATIONS[$layer]}s)"
+		TOTAL_DURATION=$((TOTAL_DURATION + DURATIONS[$layer]))
+	fi
 done
 
 info "========================================="

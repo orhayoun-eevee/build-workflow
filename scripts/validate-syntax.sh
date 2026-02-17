@@ -23,36 +23,36 @@ check_command helm || exit 1
 info "Step 1/2: Running yamllint on values.yaml and Chart.yaml"
 
 if [[ -f "${CHART_PATH}/values.yaml" ]]; then
-    if yamllint -c "${CONFIGS_DIR}/yamllint.yaml" "${CHART_PATH}/values.yaml"; then
-        success "yamllint passed for values.yaml"
-    else
-        error "yamllint failed for values.yaml"
-        exit 1
-    fi
+	if yamllint -c "${CONFIGS_DIR}/yamllint.yaml" "${CHART_PATH}/values.yaml"; then
+		success "yamllint passed for values.yaml"
+	else
+		error "yamllint failed for values.yaml"
+		exit 1
+	fi
 else
-    warn "values.yaml not found in ${CHART_PATH}"
+	warn "values.yaml not found in ${CHART_PATH}"
 fi
 
 if [[ -f "${CHART_PATH}/Chart.yaml" ]]; then
-    if yamllint -c "${CONFIGS_DIR}/yamllint.yaml" "${CHART_PATH}/Chart.yaml"; then
-        success "yamllint passed for Chart.yaml"
-    else
-        error "yamllint failed for Chart.yaml"
-        exit 1
-    fi
+	if yamllint -c "${CONFIGS_DIR}/yamllint.yaml" "${CHART_PATH}/Chart.yaml"; then
+		success "yamllint passed for Chart.yaml"
+	else
+		error "yamllint failed for Chart.yaml"
+		exit 1
+	fi
 else
-    error "Chart.yaml not found in ${CHART_PATH}"
-    exit 1
+	error "Chart.yaml not found in ${CHART_PATH}"
+	exit 1
 fi
 
 # Step 2: helm lint --strict (includes values.schema.json validation if present)
 info "Step 2/2: Running helm lint --strict"
 
 if helm lint "${CHART_PATH}" --strict; then
-    success "helm lint --strict passed"
+	success "helm lint --strict passed"
 else
-    error "helm lint --strict failed"
-    exit 1
+	error "helm lint --strict failed"
+	exit 1
 fi
 
 success "Layer 1 validation completed successfully"
