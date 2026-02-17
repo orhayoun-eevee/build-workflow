@@ -65,12 +65,12 @@ on:
         description: 'Docker image to use for validation'
         required: false
         type: string
-        default: 'ghcr.io/orhayoun-eevee/helm-validate:latest'
+        default: 'ghcr.io/orhayoun-eevee/helm-validate:v0.1.0'
       build_workflow_ref:
         description: 'Ref (SHA/tag/branch) of build-workflow to checkout for scripts/configs'
         required: false
         type: string
-        default: 'main'
+        default: 'v0.1.0'
     secrets:
       gh_app_id:
         description: 'GitHub App ID for minting installation token'
@@ -151,7 +151,7 @@ jobs:
 
           if [[ -d "${CHART_PATH}/tests" ]]; then
             unit_test_files=$(find "${CHART_PATH}/tests" -type f -name "*_test.yaml" | wc -l | tr -d ' ')
-            unit_test_assertions=$(grep -R -c --include='*_test.yaml' -E '^[[:space:]]*- it:' "${CHART_PATH}/tests" | awk -F: '{sum += $NF} END {print sum + 0}')
+            unit_test_assertions=$(grep -R -h --include='*_test.yaml' -E '^[[:space:]]*- it:' "${CHART_PATH}/tests" | wc -l | tr -d ' ' || true)
           fi
 
           if [[ -d "${SCENARIOS_DIR}" ]]; then

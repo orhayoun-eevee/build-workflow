@@ -27,7 +27,7 @@
     },
     {
       "matchManagers": ["custom.regex"],
-      "matchDepTypes": ["tool-version", "python-package"],
+      "matchDepTypes": ["tool-version", "python-package", "workflow-version", "workflow-image"],
       "groupName": "validation toolchain",
       "automerge": true,
       "automergeType": "pr",
@@ -110,6 +110,45 @@
       "depNameTemplate": "yamale",
       "datasourceTemplate": "pypi",
       "depTypeTemplate": "python-package"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/\\.github\\/workflows\\/.*\\.ya?ml$/",
+        "/templates\\/.*\\.github\\/workflows\\/.*\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "uses:\\s*orhayoun-eevee/build-workflow/.github/workflows/[^@\\s]+@(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "orhayoun-eevee/build-workflow",
+      "datasourceTemplate": "github-tags",
+      "depTypeTemplate": "workflow-version"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/\\.github\\/workflows\\/.*\\.ya?ml$/",
+        "/templates\\/.*\\.github\\/workflows\\/.*\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "build_workflow_ref:\\s*\"?(?<currentValue>v\\d+\\.\\d+\\.\\d+)\"?"
+      ],
+      "depNameTemplate": "orhayoun-eevee/build-workflow",
+      "datasourceTemplate": "github-tags",
+      "depTypeTemplate": "workflow-version"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/\\.github\\/workflows\\/.*\\.ya?ml$/",
+        "/templates\\/.*\\.github\\/workflows\\/.*\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "docker_image:\\s*\"?ghcr\\.io/orhayoun-eevee/helm-validate:(?<currentValue>v\\d+\\.\\d+\\.\\d+)\"?"
+      ],
+      "depNameTemplate": "ghcr.io/orhayoun-eevee/helm-validate",
+      "datasourceTemplate": "docker",
+      "depTypeTemplate": "workflow-image"
     }
   ]
 }
