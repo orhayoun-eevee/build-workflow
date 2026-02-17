@@ -66,7 +66,7 @@ jobs:
       - name: Run hadolint
         run: hadolint --failure-threshold error docker/Dockerfile
 
-      - name: Disallow mutable helm-validate image tags
+      - name: Disallow mutable or caller-controlled helm-validate refs
         run: |
           set -euo pipefail
           offending_files=$(grep -R -l "ghcr.io/orhayoun-eevee/helm-validate:latest" .github/workflows || true)
@@ -74,6 +74,14 @@ jobs:
           if [[ -n "${offending_files}" ]]; then
             echo "Found mutable helm-validate image tags (:latest) in consumer workflows:"
             echo "${offending_files}"
+            exit 1
+          fi
+
+          override_files=$(grep -R -l -E '^[[:space:]]*(docker_image|build_workflow_ref):' .github/workflows templates/app-chart/.github/workflows || true)
+          override_files=$(echo "${override_files}" | grep -Ev "quality-guardrails\\.yaml" || true)
+          if [[ -n "${override_files}" ]]; then
+            echo "Found disallowed caller override inputs (docker_image/build_workflow_ref):"
+            echo "${override_files}"
             exit 1
           fi
 

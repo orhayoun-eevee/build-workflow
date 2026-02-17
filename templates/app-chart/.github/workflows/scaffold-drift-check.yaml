@@ -29,7 +29,6 @@ jobs:
   drift-check:
     uses: orhayoun-eevee/build-workflow/.github/workflows/scaffold-drift-check.yaml@__BUILD_WORKFLOW_REF__
     with:
-      build_workflow_ref: __BUILD_WORKFLOW_REF__
       repo_name: __REPO_NAME__
     secrets:
       gh_app_id: ${{ secrets.GHCR_AUTO_APP_ID }}
