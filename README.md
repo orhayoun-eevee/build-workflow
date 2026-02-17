@@ -10,6 +10,14 @@ This repository provides:
 - **Docker image** with all validation tools pinned to exact versions
 - **Configuration defaults** for yamllint, chart-testing, kube-linter, and Chart.yaml schema
 
+## Workflow Trigger Matrix
+
+See `docs/workflow-trigger-matrix.md` for a clear map of:
+- which workflow is triggered
+- when it is triggered
+- whether it is automatic or manual
+- and what responsibility it owns
+
 ## Repository Structure
 
 ```
@@ -18,7 +26,10 @@ build-workflow/
 │   ├── helm-validate.yaml     # Reusable: 5-layer validation pipeline
 │   ├── release-chart.yaml     # Reusable: publish chart to OCI registry
 │   ├── docker-build.yaml      # Internal: build & push the Docker image
-│   └── docker-pr-smoke.yaml   # Internal: PR smoke build for Dockerfile changes
+│   ├── docker-pr-smoke.yaml   # Internal: PR smoke build for Dockerfile changes
+│   └── quality-guardrails.yaml # Internal: static lint checks for scripts/workflows/Dockerfile
+├── docs/
+│   └── workflow-trigger-matrix.md # Trigger ownership and automation matrix
 ├── scripts/
 │   ├── lib/
 │   │   └── common.sh              # Shared utilities (logging, colors, semver)
@@ -448,17 +459,19 @@ The Docker image bundles all validation tools at pinned versions for consistency
 
 ### Tools included
 
+`docker/Dockerfile` is the source of truth for tool versions.
+
 | Tool | Version | Purpose |
 |------|---------|---------|
-| helm | 3.16.3 | Chart rendering, linting, packaging |
-| helm-unittest | 0.7.2 | BDD-style unit tests |
+| helm | 3.20.0 | Chart rendering, linting, packaging |
+| helm-unittest | 0.8.2 | BDD-style unit tests |
 | kubeconform | 0.7.0 | Kubernetes schema validation |
-| chart-testing (ct) | 3.12.0 | Chart metadata validation |
-| yamale | 5.2.1 | YAML schema validator (ct dependency) |
-| kube-linter | 0.7.0 | Kubernetes best practices linter |
-| checkov | 3.2.357 | IaC security scanner |
-| yamllint | 1.35.1 | YAML formatting linter |
-| yq | 4.44.6 | YAML processor |
+| chart-testing (ct) | 3.14.0 | Chart metadata validation |
+| yamale | 5.3.0 | YAML schema validator (ct dependency) |
+| kube-linter | 0.8.1 | Kubernetes best practices linter |
+| checkov | 3.2.502 | IaC security scanner |
+| yamllint | 1.38.0 | YAML formatting linter |
+| yq | 4.52.4 | YAML processor |
 
 ### Build locally
 
@@ -470,7 +483,10 @@ docker build -t helm-validate:local -f docker/Dockerfile docker/
 
 1. Update the version in `docker/Dockerfile`
 2. Rebuild and test: `docker build -t helm-validate:local -f docker/Dockerfile docker/`
-3. Tag and push: the `docker-build.yaml` workflow handles this on tag push
+3. Publish flow:
+   - automatic `latest` publish on `main` when docker build inputs change
+   - automatic versioned publish on `v*` tag push
+   - optional manual publish via `workflow_dispatch`
 
 ---
 

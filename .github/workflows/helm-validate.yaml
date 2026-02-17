@@ -128,6 +128,60 @@ jobs:
           CONFIGS_DIR: .build-workflow/configs
         run: .build-workflow/scripts/validate-orchestrator.sh
 
+      - name: Compute quality metrics
+        id: quality-metrics
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          CHART_PATH="${{ inputs.chart_path }}"
+          SCENARIOS_DIR="${{ inputs.scenarios_dir }}"
+
+          unit_test_files=0
+          unit_test_assertions=0
+          scenario_count=0
+          fail_case_count=0
+          checkov_skip_count=0
+
+          if [[ -d "${CHART_PATH}/tests" ]]; then
+            unit_test_files=$(find "${CHART_PATH}/tests" -type f -name "*_test.yaml" | wc -l | tr -d ' ')
+            unit_test_assertions=$(grep -R -c --include='*_test.yaml' -E '^[[:space:]]*- it:' "${CHART_PATH}/tests" | awk -F: '{sum += $NF} END {print sum + 0}')
+          fi
+
+          if [[ -d "${SCENARIOS_DIR}" ]]; then
+            scenario_count=$(find "${SCENARIOS_DIR}" -maxdepth 1 -type f -name "*.yaml" | wc -l | tr -d ' ')
+          fi
+
+          if [[ -d "${CHART_PATH}/tests/schema-fail-cases" ]]; then
+            fail_case_count=$(find "${CHART_PATH}/tests/schema-fail-cases" -maxdepth 1 -type f -name "*.yaml" | wc -l | tr -d ' ')
+          fi
+
+          if [[ -f "${CHART_PATH}/.checkov.yaml" ]]; then
+            checkov_skip_count=$(grep -c -E '^[[:space:]]*-[[:space:]]*CKV_' "${CHART_PATH}/.checkov.yaml" || true)
+          elif [[ -f ".checkov.yaml" ]]; then
+            checkov_skip_count=$(grep -c -E '^[[:space:]]*-[[:space:]]*CKV_' ".checkov.yaml" || true)
+          fi
+
+          {
+            echo "unit_test_files=${unit_test_files}"
+            echo "unit_test_assertions=${unit_test_assertions}"
+            echo "scenario_count=${scenario_count}"
+            echo "fail_case_count=${fail_case_count}"
+            echo "checkov_skip_count=${checkov_skip_count}"
+          } >> "${GITHUB_OUTPUT}"
+
+          {
+            echo "## Validation Quality Metrics"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Unit test files | ${unit_test_files} |"
+            echo "| Unit test assertions | ${unit_test_assertions} |"
+            echo "| Scenarios | ${scenario_count} |"
+            echo "| Schema fail-cases | ${fail_case_count} |"
+            echo "| Checkov skip rules | ${checkov_skip_count} |"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - name: Post PR Comment
         if: always() && github.event_name == 'pull_request'
         continue-on-error: true
@@ -145,6 +199,11 @@ jobs:
               `| Chart | \`${{ inputs.chart_path }}\` |`,
               `| K8s version | \`${{ inputs.kubernetes_version }}\` |`,
               `| Version check | \`${{ inputs.run_version_check }}\` |`,
+              `| Unit test files | \`${{ steps.quality-metrics.outputs.unit_test_files }}\` |`,
+              `| Unit test assertions | \`${{ steps.quality-metrics.outputs.unit_test_assertions }}\` |`,
+              `| Scenarios | \`${{ steps.quality-metrics.outputs.scenario_count }}\` |`,
+              `| Schema fail-cases | \`${{ steps.quality-metrics.outputs.fail_case_count }}\` |`,
+              `| Checkov skip rules | \`${{ steps.quality-metrics.outputs.checkov_skip_count }}\` |`,
               '',
               `See [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for detailed logs.`
             ].join('\n');

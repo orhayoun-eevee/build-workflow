@@ -2,6 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
 source "${SCRIPT_DIR}/lib/common.sh"
 
 : "${CHART_PATH:?CHART_PATH is required}"
@@ -16,21 +17,21 @@ mkdir -p "${SNAPSHOTS_DIR}"
 shopt -s nullglob
 scenarios=("${SCENARIOS_DIR}"/*.yaml "${SCENARIOS_DIR}"/*.yml)
 if [[ ${#scenarios[@]} -eq 0 ]]; then
-    error "No scenarios found in ${SCENARIOS_DIR}"
-    exit 1
+	error "No scenarios found in ${SCENARIOS_DIR}"
+	exit 1
 fi
 
 info "Regenerating snapshots from ${SCENARIOS_DIR}"
 for scenario in "${scenarios[@]}"; do
-    scenario_name="$(basename "${scenario}")"
-    scenario_name="${scenario_name%.yaml}"
-    scenario_name="${scenario_name%.yml}"
+	scenario_name="$(basename "${scenario}")"
+	scenario_name="${scenario_name%.yaml}"
+	scenario_name="${scenario_name%.yml}"
 
-    info "Updating snapshot: ${scenario_name}"
-    helm template test-release "${CHART_PATH}" \
-        --values "${scenario}" \
-        --kube-version "${KUBERNETES_VERSION}" \
-        > "${SNAPSHOTS_DIR}/${scenario_name}.yaml"
+	info "Updating snapshot: ${scenario_name}"
+	helm template test-release "${CHART_PATH}" \
+		--values "${scenario}" \
+		--kube-version "${KUBERNETES_VERSION}" \
+		>"${SNAPSHOTS_DIR}/${scenario_name}.yaml"
 done
 
 success "Snapshots updated in ${SNAPSHOTS_DIR}"

@@ -1,0 +1,67 @@
+name: Quality Guardrails
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/**'
+      - 'docker/Dockerfile'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/**'
+      - 'docker/Dockerfile'
+
+permissions:
+  contents: read
+
+jobs:
+  lint-automation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install shell and workflow linters
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+          SHFMT_VERSION=v3.11.0
+          curl -fsSL -o shfmt "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64"
+          chmod +x shfmt
+          sudo mv shfmt /usr/local/bin/shfmt
+          shfmt --version
+
+          ACTIONLINT_VERSION=v1.7.8
+          curl -fsSL "https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION#v}_linux_amd64.tar.gz" -o actionlint.tar.gz
+          tar -xzf actionlint.tar.gz actionlint
+          chmod +x actionlint
+          sudo mv actionlint /usr/local/bin/actionlint
+
+          HADOLINT_VERSION=v2.12.0
+          curl -fsSL -o hadolint "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64"
+          chmod +x hadolint
+          sudo mv hadolint /usr/local/bin/hadolint
+
+      - name: Run shellcheck
+        run: |
+          mapfile -t script_files < <(find scripts -type f -name '*.sh')
+          if [ "${#script_files[@]}" -eq 0 ]; then
+            echo "No shell scripts found"
+            exit 0
+          fi
+          shellcheck "${script_files[@]}"
+
+      - name: Run shfmt (check mode)
+        run: shfmt -d scripts
+
+      - name: Run actionlint
+        run: actionlint
+
+      - name: Run hadolint
+        run: hadolint --failure-threshold error docker/Dockerfile

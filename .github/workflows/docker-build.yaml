@@ -2,6 +2,11 @@ name: Build and Push Helm Validate Docker Image
 
 on:
   push:
+    branches:
+      - main
+    paths:
+      - 'docker/**'
+      - '.github/workflows/docker-build.yaml'
     tags:
       - 'v*'
   workflow_dispatch:
@@ -51,4 +56,4 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max,ignore-error=true
