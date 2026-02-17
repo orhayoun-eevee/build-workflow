@@ -25,8 +25,8 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 ## Docker Validation Image Lifecycle
 
 - Image name: `ghcr.io/orhayoun-eevee/helm-validate`
-- `latest` tag:
-  - updated automatically on `main` pushes that affect docker image build inputs
+- floating tags:
+  - may be updated automatically on `main` pushes that affect docker image build inputs
 - version tags (`vX.Y.Z`):
   - published automatically on tag pushes in `build-workflow`
 - manual rebuild:
