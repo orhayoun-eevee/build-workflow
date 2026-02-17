@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-BUILD_WORKFLOW_REF="${BUILD_WORKFLOW_REF:-0042a8575237d45861b99ce8dfb16d78f8007e33}"
+BUILD_WORKFLOW_REF="${BUILD_WORKFLOW_REF:-2b1fd2d1389738e7e23615e006f730f0c3804093}"
 DRY_RUN=true
 
 REPOS=(helm-common-lib radarr-helm sonarr-helm sabnzbd-helm transmission-helm)
