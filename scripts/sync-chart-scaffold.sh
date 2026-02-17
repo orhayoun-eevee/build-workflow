@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-BUILD_WORKFLOW_REF="${BUILD_WORKFLOW_REF:-2b1fd2d1389738e7e23615e006f730f0c3804093}"
+BUILD_WORKFLOW_REF="${BUILD_WORKFLOW_REF:-}"
 DRY_RUN=true
 
 REPOS=(helm-common-lib radarr-helm sonarr-helm sabnzbd-helm transmission-helm)
@@ -50,6 +50,11 @@ while [[ $# -gt 0 ]]; do
 		;;
 	esac
 done
+
+if [[ -z "${BUILD_WORKFLOW_REF}" ]]; then
+	echo "Error: build-workflow ref is required. Set BUILD_WORKFLOW_REF or pass --ref <sha/tag/branch>." >&2
+	exit 2
+fi
 
 APP_TEMPLATE_ROOT="${ROOT}/build-workflow/templates/app-chart"
 LIB_TEMPLATE_ROOT="${ROOT}/build-workflow/templates/helm-common-lib"
