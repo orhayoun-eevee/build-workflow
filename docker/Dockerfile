@@ -78,7 +78,7 @@ RUN wget -q "https://github.com/stackrox/kube-linter/releases/download/v${KUBE_L
 # - yamale: YAML schema validator (required by chart-testing)
 RUN pip3 install --no-cache-dir --break-system-packages \
     yamllint==1.38.0 \
-    checkov==3.2.502 \
+    checkov==3.2.504 \
     yamale==5.3.0
 
 # Verify installations
