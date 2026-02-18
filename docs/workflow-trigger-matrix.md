@@ -21,6 +21,7 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 | `.github/workflows/on-tag.yaml` | `push` tags `v*` | Yes | Calls reusable `release-chart.yaml` |
 | `.github/workflows/renovate-config.yaml` | PR/push changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
 | `.github/workflows/renovate-snapshot-update.yaml` | Renovate PR events + `values.yaml` changes | Yes | Regenerate and commit snapshot files for Renovate PRs |
+| `.github/workflows/scaffold-drift-check.yaml` | PR/push changes to managed scaffold files | Yes | Enforce workflow/scaffold parity with `build-workflow` templates (apps and library) |
 
 ## Docker Validation Image Lifecycle
 
@@ -35,6 +36,7 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 ## Operational Notes
 
 - Chart repos pin reusable workflows to a specific `build-workflow` release tag (`vX.Y.Z`) for deterministic CI.
+- Internal image/ref versions are owned by `build-workflow`; consumer repos should only bump reusable workflow tags.
 - If reusable workflow behavior must change globally, update `build-workflow` first, then bump pinned tags in all chart repos.
 - Snapshot-update workflows are intentionally scoped to Renovate PRs touching `values.yaml` to avoid self-mutating non-Renovate PRs.
 - Branch protection for `main` should require only the `required-checks` status from `.github/workflows/pr-required-checks.yaml`.

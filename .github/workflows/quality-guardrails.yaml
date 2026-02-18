@@ -69,7 +69,7 @@ jobs:
       - name: Disallow mutable or caller-controlled helm-validate refs
         run: |
           set -euo pipefail
-          offending_files=$(grep -R -l "ghcr.io/orhayoun-eevee/helm-validate:latest" .github/workflows || true)
+          offending_files=$(grep -R -l "ghcr.io/orhayoun-eevee/helm-validate:latest" .github/workflows templates || true)
           offending_files=$(echo "${offending_files}" | grep -Ev "quality-guardrails\\.yaml" || true)
           if [[ -n "${offending_files}" ]]; then
             echo "Found mutable helm-validate image tags (:latest) in consumer workflows:"
@@ -77,11 +77,19 @@ jobs:
             exit 1
           fi
 
-          override_files=$(grep -R -l -E '^[[:space:]]*(docker_image|build_workflow_ref):' .github/workflows templates/app-chart/.github/workflows || true)
+          override_files=$(grep -R -l -E '^[[:space:]]*(docker_image|build_workflow_ref):' .github/workflows templates || true)
           override_files=$(echo "${override_files}" | grep -Ev "quality-guardrails\\.yaml" || true)
           if [[ -n "${override_files}" ]]; then
             echo "Found disallowed caller override inputs (docker_image/build_workflow_ref):"
             echo "${override_files}"
+            exit 1
+          fi
+
+          mutable_workflow_refs=$(grep -R -l -E 'uses:\s*orhayoun-eevee/build-workflow/.+@main' templates .github/workflows || true)
+          mutable_workflow_refs=$(echo "${mutable_workflow_refs}" | grep -Ev "quality-guardrails\\.yaml" || true)
+          if [[ -n "${mutable_workflow_refs}" ]]; then
+            echo "Found mutable build-workflow references (@main):"
+            echo "${mutable_workflow_refs}"
             exit 1
           fi
 
