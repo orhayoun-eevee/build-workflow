@@ -136,6 +136,20 @@
       "depNameTemplate": "ghcr.io/orhayoun-eevee/helm-validate",
       "datasourceTemplate": "docker",
       "depTypeTemplate": "workflow-image"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/\\.github\\/workflows\\/(helm-validate|renovate-snapshot-update|scaffold-drift-check)\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "ref:\\s*(?<currentValue>v\\d+\\.\\d+\\.\\d+)",
+        "--ref\\s+\\\"(?<currentValue>v\\d+\\.\\d+\\.\\d+)\\\"",
+        "--ref\\s+(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
+      ],
+      "depNameTemplate": "orhayoun-eevee/build-workflow",
+      "datasourceTemplate": "github-tags",
+      "depTypeTemplate": "workflow-version"
     }
   ]
 }

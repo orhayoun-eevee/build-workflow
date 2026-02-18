@@ -174,7 +174,7 @@ on:
 
 jobs:
   validate:
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@<pinned-commit-sha>
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@vX.Y.Z
     with:
       chart_path: .
       kubernetes_version: "1.30.0"
@@ -283,6 +283,11 @@ make validate         # Run all 5 layers
 3. Executes `validate-orchestrator.sh` which runs all 5 layers sequentially
 4. Posts a summary comment on the PR (pass/fail with settings table)
 
+**Version ownership model:**
+1. Consumer repos only pin reusable workflow tags (`@vX.Y.Z`).
+2. Internal runtime refs (validation image tag and framework checkout refs) are owned by `build-workflow`.
+3. Consumer repos must not pass custom image/ref overrides.
+
 ---
 
 ### release-chart.yaml
@@ -312,7 +317,7 @@ on:
 
 jobs:
   release:
-    uses: orhayoun-eevee/build-workflow/.github/workflows/release-chart.yaml@<pinned-commit-sha>
+    uses: orhayoun-eevee/build-workflow/.github/workflows/release-chart.yaml@vX.Y.Z
     with:
       chart_path: .
     permissions:
@@ -486,7 +491,7 @@ docker build -t helm-validate:local -f docker/Dockerfile docker/
 1. Update the version in `docker/Dockerfile`
 2. Rebuild and test: `docker build -t helm-validate:local -f docker/Dockerfile docker/`
 3. Publish flow:
-   - automatic publish on `main` when docker build inputs change (consume by immutable digest)
+   - automatic publish on `main` when docker build inputs change
    - automatic versioned publish on `v*` tag push
    - optional manual publish via `workflow_dispatch`
 
