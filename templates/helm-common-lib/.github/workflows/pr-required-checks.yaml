@@ -9,10 +9,7 @@ on:
       - checks_requested
 
 permissions:
-  actions: read
   contents: read
-  packages: read
-  security-events: write
 
 concurrency:
   group: pr-required-checks-${{ github.workflow }}-${{ github.ref }}
@@ -20,6 +17,11 @@ concurrency:
 
 jobs:
   required-checks:
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+      security-events: write
     uses: orhayoun-eevee/build-workflow/.github/workflows/pr-required-checks-chart.yaml@__BUILD_WORKFLOW_REF__
     with:
       repo_name: __REPO_NAME__

@@ -27,6 +27,7 @@ concurrency:
 jobs:
   lint-automation:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       SHFMT_VERSION: v3.11.0
       SHFMT_SHA256: 1904ec6bac715c1d05cd7f6612eec8f67a625c3749cb327e5bfb4127d09035ff
@@ -193,15 +194,20 @@ jobs:
           set -euo pipefail
           mkdir -p reports
           contract_errors=()
+          chart_required_file=".github/workflows/pr-required-checks-chart.yaml"
 
           required_files=(
             "templates/app-chart/.github/workflows/pr-required-checks.yaml"
             "templates/helm-common-lib/.github/workflows/pr-required-checks.yaml"
           )
 
+          if [[ ! -f "${chart_required_file}" ]]; then
+            contract_errors+=("${chart_required_file}: file missing")
+          fi
+
           for file in "${required_files[@]}"; do
             grep -Eq '^name:[[:space:]]+PR Required Checks$' "${file}" || contract_errors+=("${file}: missing workflow name 'PR Required Checks'")
-            grep -Eq '^[[:space:]]+name:[[:space:]]+required-checks$' .github/workflows/pr-required-checks-chart.yaml || contract_errors+=(".github/workflows/pr-required-checks-chart.yaml: missing required-checks job name")
+            grep -Eq '^[[:space:]]+name:[[:space:]]+required-checks$' "${chart_required_file}" || contract_errors+=("${chart_required_file}: missing required-checks job name")
             grep -Eq '^[[:space:]]+merge_group:' "${file}" || contract_errors+=("${file}: missing merge_group trigger")
           done
 
@@ -251,7 +257,7 @@ jobs:
             fi
           done
 
-          if ! jq -e '.customManagers[]? | select(any(.managerFilePatterns[]?; contains("workflows")))' renovate.json >/dev/null; then
+          if ! jq -e '[.customManagers[]?.managerFilePatterns[]?] | any(test("workflows"))' renovate.json >/dev/null; then
             echo "Missing custom manager coverage for workflow files."
             exit 1
           fi

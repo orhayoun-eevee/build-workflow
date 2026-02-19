@@ -8,14 +8,12 @@ on:
     paths:
       - ".github/workflows/**"
       - "scripts/**"
-      - "docker/**"
   push:
     branches:
       - main
     paths:
       - ".github/workflows/**"
       - "scripts/**"
-      - "docker/**"
   schedule:
     - cron: "17 4 * * 1"
 
@@ -32,6 +30,7 @@ jobs:
   analyze:
     name: Analyze (actions)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:

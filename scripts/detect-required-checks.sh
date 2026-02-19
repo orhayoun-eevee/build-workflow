@@ -73,7 +73,7 @@ if [[ "${MODE}" == "build" ]]; then
 		run_renovate_validation=true
 	fi
 
-	if grep -Eq '^(scripts/|\.github/workflows/|docker/)' <<<"${changed_files}"; then
+	if grep -Eq '^(scripts/|\.github/workflows/)' <<<"${changed_files}"; then
 		run_codeql=true
 	fi
 
@@ -101,7 +101,7 @@ if [[ "${MODE}" == "chart" ]]; then
 			run_scaffold_drift=true
 		fi
 
-		if [[ "${enable_codeql}" == "true" ]] && grep -Eq '^(\.github/workflows/|scripts/|libChart/|test-chart/)' <<<"${changed_files}"; then
+		if [[ "${enable_codeql}" == "true" ]] && grep -Eq '^(\.github/workflows/|scripts/)' <<<"${changed_files}"; then
 			run_codeql=true
 		fi
 	else
@@ -113,7 +113,7 @@ if [[ "${MODE}" == "chart" ]]; then
 			run_scaffold_drift=true
 		fi
 
-		if [[ "${enable_codeql}" == "true" ]] && grep -Eq '^(\.github/workflows/|scripts/|templates/|values\.yaml)' <<<"${changed_files}"; then
+		if [[ "${enable_codeql}" == "true" ]] && grep -Eq '^(\.github/workflows/|scripts/)' <<<"${changed_files}"; then
 			run_codeql=true
 		fi
 	fi

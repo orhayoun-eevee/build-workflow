@@ -13,7 +13,7 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 | `.github/workflows/pr-required-checks-chart.yaml` | `workflow_call` only | Indirect | Reusable always-on required gate orchestration for chart repos |
 | `.github/workflows/release-chart.yaml` | `workflow_call` only | Indirect | Package and publish Helm chart to GHCR OCI |
 | `.github/workflows/dependency-review.yaml` | `pull_request` to `main`, `workflow_call` | Yes (PR), Indirect (`workflow_call`) | Dependency risk policy check for dependency updates |
-| `.github/workflows/codeql.yaml` | `pull_request`/`push` to `main` (automation paths), `schedule`, `workflow_call` | Yes (PR/push/schedule), Indirect (`workflow_call`) | Code scanning for workflow/script automation content |
+| `.github/workflows/codeql.yaml` | `pull_request`/`push` to `main` (`.github/workflows/**`, `scripts/**`), `schedule`, `workflow_call` | Yes (PR/push/schedule), Indirect (`workflow_call`) | Code scanning for workflow/script automation content |
 | `.github/workflows/renovate-config.yaml` | push to `main` changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
 | `.github/workflows/quality-guardrails.yaml` | `pull_request` to `main` for automation paths, `workflow_call` | Yes (PR), Indirect (`workflow_call`) | Lint/guardrail enforcement for workflows/scripts/toolchain pins |
 
@@ -27,7 +27,7 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 | `.github/workflows/renovate-config.yaml` | push to `main` changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
 | `.github/workflows/renovate-snapshot-update.yaml` | Renovate PR events + `values.yaml` changes | Yes | Regenerate and commit snapshot files for Renovate PRs |
 | `.github/workflows/dependency-review.yaml` | `workflow_dispatch` | Manual | Optional manual (break-glass) dependency review run; PR dependency checks are centralized in `pr-required-checks-chart.yaml` |
-| `.github/workflows/codeql.yaml` | `push` to `main` (chart automation paths), `schedule`, `workflow_dispatch` | Yes | Calls centralized `build-workflow` CodeQL workflow |
+| `.github/workflows/codeql.yaml` | `push` to `main` (`.github/workflows/**`, `scripts/**`), `schedule`, `workflow_dispatch` | Yes | Calls centralized `build-workflow` CodeQL workflow |
 | `.github/workflows/scaffold-drift-check.yaml` | `workflow_dispatch` | Manual | Optional manual (break-glass) scaffold parity verification; PR drift checks are centralized in `pr-required-checks-chart.yaml` |
 
 ## Docker Validation Image Lifecycle

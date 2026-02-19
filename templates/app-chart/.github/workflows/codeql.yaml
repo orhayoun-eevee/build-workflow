@@ -7,8 +7,6 @@ on:
     paths:
       - ".github/workflows/**"
       - "scripts/**"
-      - "templates/**"
-      - "values.yaml"
   schedule:
     - cron: "21 4 * * 1"
   workflow_dispatch:

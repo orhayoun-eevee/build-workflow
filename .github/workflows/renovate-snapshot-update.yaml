@@ -28,6 +28,7 @@ jobs:
   update-snapshots:
     if: github.event_name == 'pull_request' && github.actor == 'renovate[bot]' && github.event.pull_request.user.login == 'renovate[bot]' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Create GitHub App token
@@ -50,7 +51,7 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: v0.1.9
+          ref: v0.1.10
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Build pinned validation image
