@@ -1,26 +1,7 @@
-name: Scaffold Drift Check
+name: Scaffold Drift Check (Manual)
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/on-pr.yaml'
-      - '.github/workflows/on-tag.yaml'
-      - '.github/workflows/dependency-review.yaml'
-      - '.github/workflows/codeql.yaml'
-      - '.github/workflows/pr-required-checks.yaml'
-      - '.github/workflows/renovate-config.yaml'
-      - '.github/workflows/scaffold-drift-check.yaml'
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/on-pr.yaml'
-      - '.github/workflows/on-tag.yaml'
-      - '.github/workflows/dependency-review.yaml'
-      - '.github/workflows/codeql.yaml'
-      - '.github/workflows/pr-required-checks.yaml'
-      - '.github/workflows/renovate-config.yaml'
-      - '.github/workflows/scaffold-drift-check.yaml'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -29,7 +10,7 @@ jobs:
   drift-check:
     uses: orhayoun-eevee/build-workflow/.github/workflows/scaffold-drift-check.yaml@__BUILD_WORKFLOW_REF__
     with:
-      repo_name: __REPO_NAME__
+      repo_name: helm-common-lib
     secrets:
       gh_app_id: ${{ secrets.GHCR_AUTO_APP_ID }}
       gh_app_private_key: ${{ secrets.GHCR_AUTO_PKEY }}

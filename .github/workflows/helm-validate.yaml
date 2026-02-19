@@ -85,7 +85,7 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/orhayoun-eevee/helm-validate:v0.1.5
+      image: ghcr.io/orhayoun-eevee/helm-validate:v0.1.6
     outputs:
       unit_test_files: ${{ steps.quality-metrics.outputs.unit_test_files }}
       unit_test_assertions: ${{ steps.quality-metrics.outputs.unit_test_assertions }}
@@ -112,7 +112,7 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: v0.1.5
+          ref: v0.1.6
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Resolve chart dependencies
@@ -182,6 +182,8 @@ jobs:
             echo "scenario_count=${scenario_count}"
             echo "fail_case_count=${fail_case_count}"
             echo "checkov_skip_count=${checkov_skip_count}"
+            safe_chart_path="$(echo "${CHART_PATH}" | sed 's|/|-|g' | sed 's|\.$|root|g')"
+            echo "metrics_artifact_name=validation-metrics-${safe_chart_path}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           } >> "${GITHUB_OUTPUT}"
 
           {
@@ -211,47 +213,6 @@ jobs:
         if: always() && hashFiles('quality-metrics.json') != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: validation-metrics-${{ github.job }}-${{ github.run_id }}
+          name: ${{ steps.quality-metrics.outputs.metrics_artifact_name }}
           path: quality-metrics.json
           retention-days: 14
-
-  post-pr-comment:
-    if: always() && inputs.post_pr_comment && github.event_name == 'pull_request'
-    needs: validate
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
-      pull-requests: write
-    steps:
-      - name: Post PR Comment
-        continue-on-error: true
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-        with:
-          github-token: ${{ github.token }}
-          script: |
-            const conclusion = '${{ needs.validate.result }}';
-            const icon = conclusion === 'success' ? '✅' : '❌';
-            const body = [
-              `## ${icon} Helm Validation ${conclusion === 'success' ? 'Passed' : 'Failed'}`,
-              '',
-              `| Setting | Value |`,
-              `|---------|-------|`,
-              `| Chart | \`${{ inputs.chart_path }}\` |`,
-              `| K8s version | \`${{ inputs.kubernetes_version }}\` |`,
-              `| Version check | \`${{ inputs.run_version_check }}\` |`,
-              `| Unit test files | \`${{ needs.validate.outputs.unit_test_files }}\` |`,
-              `| Unit test assertions | \`${{ needs.validate.outputs.unit_test_assertions }}\` |`,
-              `| Scenarios | \`${{ needs.validate.outputs.scenario_count }}\` |`,
-              `| Schema fail-cases | \`${{ needs.validate.outputs.fail_case_count }}\` |`,
-              `| Checkov skip rules | \`${{ needs.validate.outputs.checkov_skip_count }}\` |`,
-              '',
-              `See [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for detailed logs.`
-            ].join('\n');
-
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body
-            });
