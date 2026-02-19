@@ -16,7 +16,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  required-checks:
+  ci-required:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       actions: read
       contents: read
@@ -27,7 +28,6 @@ jobs:
       repo_name: __REPO_NAME__
       chart_kind: app
       enable_codeql: true
-      enable_scaffold_drift: true
     secrets:
       gh_app_id: ${{ secrets.GHCR_AUTO_APP_ID }}
       gh_app_private_key: ${{ secrets.GHCR_AUTO_PKEY }}

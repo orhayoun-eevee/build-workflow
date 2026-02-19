@@ -140,7 +140,7 @@
     {
       "customType": "regex",
       "managerFilePatterns": [
-        "/\\.github\\/workflows\\/(helm-validate|renovate-snapshot-update|scaffold-drift-check|pr-required-checks-chart)\\.ya?ml$/"
+        "/\\.github\\/workflows\\/(helm-validate|renovate-snapshot-update|pr-required-checks-chart)\\.ya?ml$/"
       ],
       "matchStrings": [
         "ref:\\s*(?<currentValue>v\\d+\\.\\d+\\.\\d+)",
