@@ -7,7 +7,6 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 | Workflow | Trigger | Automatic | Purpose |
 |---|---|---|---|
 | `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main`, `merge_group` (`checks_requested`) | Yes | Single always-present required gate; conditionally runs guardrails/docker-smoke/renovate/codeql validation |
-| `.github/workflows/docker-pr-smoke.yaml` | `pull_request` to `main` when `docker/**` or docker workflow files change | Yes | Smoke-build `docker/Dockerfile` before merge |
 | `.github/workflows/docker-build.yaml` | `push` tags `v*`, `workflow_dispatch` | Yes (tag), Manual (`workflow_dispatch`) | Build and push `ghcr.io/<owner>/helm-validate` |
 | `.github/workflows/helm-validate.yaml` | `workflow_call` only | Indirect | Reusable 5-layer Helm validation pipeline |
 | `.github/workflows/pr-required-checks-chart.yaml` | `workflow_call` only | Indirect | Reusable always-on required gate orchestration for chart repos |

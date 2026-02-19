@@ -2,8 +2,20 @@ name: PR Required Checks
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
     branches:
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'AGENTS.md'
+      - '.gitignore'
+      - '.editorconfig'
+      - 'LICENSE'
   merge_group:
     types:
       - checks_requested
@@ -14,9 +26,6 @@ permissions:
 concurrency:
   group: pr-required-checks-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
-env:
-  RENOVATE_IMAGE: ghcr.io/renovatebot/renovate@sha256:02283d42a0fc5a887fd0987cf7e460ff5fd1f655829f8db2aa15ea12cc223d4e
 
 jobs:
   detect-changes:
@@ -70,20 +79,11 @@ jobs:
         run: docker build -t helm-validate:pr-smoke ./docker
 
   renovate-config-validation:
-    runs-on: ubuntu-latest
     needs: detect-changes
     if: needs.detect-changes.outputs.run_renovate_validation == 'true'
-    timeout-minutes: 10
     permissions:
       contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Validate renovate config
-        run: |
-          docker run --rm -v "$PWD:/repo" -w /repo "${RENOVATE_IMAGE}" renovate-config-validator
-          docker run --rm -v "$PWD:/repo" -w /repo "${RENOVATE_IMAGE}" renovate-config-validator --strict
+    uses: ./.github/workflows/renovate-config.yaml
 
   codeql:
     needs: detect-changes

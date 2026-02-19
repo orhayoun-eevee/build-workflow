@@ -61,11 +61,6 @@ on:
         required: false
         type: string
         default: ''
-      post_pr_comment:
-        description: 'Post a summary comment on pull requests'
-        required: false
-        type: boolean
-        default: false
     secrets:
       gh_app_id:
         description: 'GitHub App ID for minting installation token'
@@ -76,6 +71,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: helm-validate-${{ github.workflow }}-${{ github.ref }}-${{ inputs.chart_path }}
@@ -86,7 +82,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     container:
-      image: ghcr.io/orhayoun-eevee/helm-validate:v0.1.11
+      image: ghcr.io/orhayoun-eevee/helm-validate:v0.1.12
     outputs:
       unit_test_files: ${{ steps.quality-metrics.outputs.unit_test_files }}
       unit_test_assertions: ${{ steps.quality-metrics.outputs.unit_test_assertions }}
@@ -113,7 +109,7 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: v0.1.11
+          ref: v0.1.12
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Restore Helm caches
