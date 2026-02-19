@@ -74,6 +74,41 @@ EOF
 	assert_contains "${out}" "run_renovate_validation=false"
 	assert_contains "${out}" "run_scaffold_drift=false"
 	assert_contains "${out}" "run_codeql=false"
+
+	echo "{}" >.github/workflows/renovate-config.yaml
+	git add .github/workflows/renovate-config.yaml
+	git commit -q -m "renovate config workflow change"
+	head_sha_renovate="$(git rev-parse HEAD)"
+
+	out="${tmpdir}/chart-renovate-pr.out"
+	: >"${out}"
+	MODE=chart EVENT_NAME=pull_request BASE_SHA="${head_sha_chart}" HEAD_SHA="${head_sha_renovate}" CHART_KIND=app ENABLE_SCAFFOLD_DRIFT=true ENABLE_CODEQL=true GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
+	assert_contains "${out}" "run_validate=false"
+	assert_contains "${out}" "run_renovate_validation=true"
+	assert_contains "${out}" "run_scaffold_drift=true"
+	assert_contains "${out}" "run_codeql=true"
+
+	mkdir -p libChart
+	echo "name: lib" >libChart/Chart.yaml
+	git add libChart/Chart.yaml
+	git commit -q -m "lib chart change"
+	head_sha_lib="$(git rev-parse HEAD)"
+
+	out="${tmpdir}/chart-lib-pr.out"
+	: >"${out}"
+	MODE=chart EVENT_NAME=pull_request BASE_SHA="${head_sha_renovate}" HEAD_SHA="${head_sha_lib}" CHART_KIND=lib ENABLE_SCAFFOLD_DRIFT=true ENABLE_CODEQL=true GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
+	assert_contains "${out}" "run_validate=true"
+	assert_contains "${out}" "run_renovate_validation=false"
+	assert_contains "${out}" "run_scaffold_drift=false"
+	assert_contains "${out}" "run_codeql=true"
+
+	out="${tmpdir}/chart-merge-group.out"
+	: >"${out}"
+	MODE=chart EVENT_NAME=merge_group CHART_KIND=app ENABLE_SCAFFOLD_DRIFT=true ENABLE_CODEQL=true GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
+	assert_contains "${out}" "run_validate=true"
+	assert_contains "${out}" "run_renovate_validation=true"
+	assert_contains "${out}" "run_scaffold_drift=true"
+	assert_contains "${out}" "run_codeql=true"
 )
 
 echo "detect-required-checks tests passed"
