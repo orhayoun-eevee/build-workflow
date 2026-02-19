@@ -2,14 +2,13 @@ name: Build and Push Helm Validate Docker Image
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'docker/**'
-      - '.github/workflows/docker-build.yaml'
     tags:
       - 'v*'
   workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
 
 env:
   REGISTRY: ghcr.io
@@ -22,9 +21,6 @@ concurrency:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
 
     steps:
       - name: Checkout repository
