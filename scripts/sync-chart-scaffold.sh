@@ -98,13 +98,10 @@ for repo in "${REPOS[@]}"; do
 			echo "skip missing repo ${repo_root}" >&2
 			continue
 		fi
-		render_template "${LIB_TEMPLATE_ROOT}/.github/workflows/on-pr.yaml" "${repo_root}/.github/workflows/on-pr.yaml" "Helm Common Lib" "${repo}"
 		render_template "${LIB_TEMPLATE_ROOT}/.github/workflows/on-tag.yaml" "${repo_root}/.github/workflows/on-tag.yaml" "Helm Common Lib" "${repo}"
-		render_template "${LIB_TEMPLATE_ROOT}/.github/workflows/dependency-review.yaml" "${repo_root}/.github/workflows/dependency-review.yaml" "Helm Common Lib" "${repo}"
 		render_template "${LIB_TEMPLATE_ROOT}/.github/workflows/codeql.yaml" "${repo_root}/.github/workflows/codeql.yaml" "Helm Common Lib" "${repo}"
 		render_template "${LIB_TEMPLATE_ROOT}/.github/workflows/pr-required-checks.yaml" "${repo_root}/.github/workflows/pr-required-checks.yaml" "Helm Common Lib" "${repo}"
 		render_template "${LIB_TEMPLATE_ROOT}/.github/workflows/renovate-config.yaml" "${repo_root}/.github/workflows/renovate-config.yaml" "Helm Common Lib" "${repo}"
-		render_template "${LIB_TEMPLATE_ROOT}/.github/workflows/scaffold-drift-check.yaml" "${repo_root}/.github/workflows/scaffold-drift-check.yaml" "Helm Common Lib" "${repo}"
 		continue
 		;;
 	radarr-helm) chart_title="Radarr" ;;
@@ -125,12 +122,9 @@ for repo in "${REPOS[@]}"; do
 
 	render_template "${APP_TEMPLATE_ROOT}/Makefile" "${repo_root}/Makefile" "${chart_title}" "${repo}"
 	render_template "${APP_TEMPLATE_ROOT}/scripts/bump-version.sh" "${repo_root}/scripts/bump-version.sh" "${chart_title}" "${repo}"
-	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/on-pr.yaml" "${repo_root}/.github/workflows/on-pr.yaml" "${chart_title}" "${repo}"
 	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/on-tag.yaml" "${repo_root}/.github/workflows/on-tag.yaml" "${chart_title}" "${repo}"
-	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/dependency-review.yaml" "${repo_root}/.github/workflows/dependency-review.yaml" "${chart_title}" "${repo}"
 	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/codeql.yaml" "${repo_root}/.github/workflows/codeql.yaml" "${chart_title}" "${repo}"
 	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/pr-required-checks.yaml" "${repo_root}/.github/workflows/pr-required-checks.yaml" "${chart_title}" "${repo}"
 	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/renovate-config.yaml" "${repo_root}/.github/workflows/renovate-config.yaml" "${chart_title}" "${repo}"
 	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/renovate-snapshot-update.yaml" "${repo_root}/.github/workflows/renovate-snapshot-update.yaml" "${chart_title}" "${repo}"
-	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/scaffold-drift-check.yaml" "${repo_root}/.github/workflows/scaffold-drift-check.yaml" "${chart_title}" "${repo}"
 done

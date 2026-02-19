@@ -8,7 +8,6 @@ base_sha="${BASE_SHA:-}"
 head_sha="${HEAD_SHA:-}"
 
 chart_kind="${CHART_KIND:-app}"
-enable_scaffold_drift="${ENABLE_SCAFFOLD_DRIFT:-true}"
 enable_codeql="${ENABLE_CODEQL:-true}"
 
 force_all=false
@@ -35,11 +34,6 @@ if [[ "${force_all}" == "true" ]]; then
 		{
 			echo "run_validate=true"
 			echo "run_renovate_validation=true"
-			if [[ "${enable_scaffold_drift}" == "true" ]]; then
-				echo "run_scaffold_drift=true"
-			else
-				echo "run_scaffold_drift=false"
-			fi
 			if [[ "${enable_codeql}" == "true" ]]; then
 				echo "run_codeql=true"
 			else
@@ -89,16 +83,11 @@ fi
 if [[ "${MODE}" == "chart" ]]; then
 	run_validate=false
 	run_renovate_validation=false
-	run_scaffold_drift=false
 	run_codeql=false
 
 	if [[ "${chart_kind}" == "lib" ]]; then
 		if grep -Eq '^(libChart/|test-chart/|tests/|scripts/|Makefile|ct\.yaml|\.checkov\.yaml|\.kube-linter\.yaml)' <<<"${changed_files}"; then
 			run_validate=true
-		fi
-
-		if [[ "${enable_scaffold_drift}" == "true" ]] && grep -Eq '^(\.github/workflows/on-pr\.yaml|\.github/workflows/on-tag\.yaml|\.github/workflows/dependency-review\.yaml|\.github/workflows/codeql\.yaml|\.github/workflows/pr-required-checks\.yaml|\.github/workflows/renovate-config\.yaml|\.github/workflows/scaffold-drift-check\.yaml)' <<<"${changed_files}"; then
-			run_scaffold_drift=true
 		fi
 
 		if [[ "${enable_codeql}" == "true" ]] && grep -Eq '^(\.github/workflows/|scripts/)' <<<"${changed_files}"; then
@@ -107,10 +96,6 @@ if [[ "${MODE}" == "chart" ]]; then
 	else
 		if grep -Eq '^(Chart\.yaml|Chart\.lock|values\.yaml|templates/|tests/|charts/|scripts/|Makefile|ct\.yaml|\.checkov\.yaml|\.kube-linter\.yaml)' <<<"${changed_files}"; then
 			run_validate=true
-		fi
-
-		if [[ "${enable_scaffold_drift}" == "true" ]] && grep -Eq '^(Makefile|scripts/bump-version\.sh|\.github/workflows/on-pr\.yaml|\.github/workflows/on-tag\.yaml|\.github/workflows/dependency-review\.yaml|\.github/workflows/codeql\.yaml|\.github/workflows/pr-required-checks\.yaml|\.github/workflows/renovate-config\.yaml|\.github/workflows/renovate-snapshot-update\.yaml|\.github/workflows/scaffold-drift-check\.yaml)' <<<"${changed_files}"; then
-			run_scaffold_drift=true
 		fi
 
 		if [[ "${enable_codeql}" == "true" ]] && grep -Eq '^(\.github/workflows/|scripts/)' <<<"${changed_files}"; then
@@ -125,7 +110,6 @@ if [[ "${MODE}" == "chart" ]]; then
 	{
 		echo "run_validate=${run_validate}"
 		echo "run_renovate_validation=${run_renovate_validation}"
-		echo "run_scaffold_drift=${run_scaffold_drift}"
 		echo "run_codeql=${run_codeql}"
 	} >>"${GITHUB_OUTPUT}"
 	exit 0

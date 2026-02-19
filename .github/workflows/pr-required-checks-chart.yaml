@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       repo_name:
-        description: 'Repository name used by scaffold drift checks'
+        description: 'Repository name used by required-checks context'
         required: true
         type: string
       chart_kind:
@@ -13,11 +13,6 @@ on:
         type: string
       enable_codeql:
         description: 'Enable CodeQL checks when chart or automation paths change'
-        required: false
-        type: boolean
-        default: true
-      enable_scaffold_drift:
-        description: 'Enable scaffold drift check for managed workflow files'
         required: false
         type: boolean
         default: true
@@ -38,6 +33,7 @@ concurrency:
 
 jobs:
   detect-changes:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -45,7 +41,6 @@ jobs:
     outputs:
       run_validate: ${{ steps.filter.outputs.run_validate }}
       run_renovate_validation: ${{ steps.filter.outputs.run_renovate_validation }}
-      run_scaffold_drift: ${{ steps.filter.outputs.run_scaffold_drift }}
       run_codeql: ${{ steps.filter.outputs.run_codeql }}
     steps:
       - name: Checkout
@@ -78,13 +73,13 @@ jobs:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
           HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           CHART_KIND: ${{ inputs.chart_kind }}
-          ENABLE_SCAFFOLD_DRIFT: ${{ inputs.enable_scaffold_drift }}
           ENABLE_CODEQL: ${{ inputs.enable_codeql }}
         run: |
           set -euo pipefail
           ./.build-workflow/scripts/detect-required-checks.sh
 
   dependency-review:
+    if: github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name == github.repository)
     permissions:
       contents: read
     uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.11
@@ -167,18 +162,6 @@ jobs:
       contents: read
     uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.11
 
-  scaffold-drift-check:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.run_scaffold_drift == 'true'
-    permissions:
-      contents: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/scaffold-drift-check.yaml@v0.1.11
-    with:
-      repo_name: ${{ inputs.repo_name }}
-    secrets:
-      gh_app_id: ${{ secrets.gh_app_id }}
-      gh_app_private_key: ${{ secrets.gh_app_private_key }}
-
   codeql:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_codeql == 'true'
@@ -188,9 +171,9 @@ jobs:
       security-events: write
     uses: orhayoun-eevee/build-workflow/.github/workflows/codeql.yaml@v0.1.11
 
-  required-checks:
-    name: required-checks
-    if: always()
+  ci-required:
+    name: ci-required
+    if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -202,7 +185,6 @@ jobs:
       - validate-lib
       - validate-test
       - renovate-config-validation
-      - scaffold-drift-check
       - codeql
     steps:
       - name: Validate required job results
@@ -211,12 +193,12 @@ jobs:
           set -euo pipefail
 
           declare -A job_results=(
+            ["detect-changes"]="${{ needs.detect-changes.result }}"
             ["dependency-review"]="${{ needs.dependency-review.result }}"
             ["validate-app"]="${{ needs.validate-app.result }}"
             ["validate-lib"]="${{ needs.validate-lib.result }}"
             ["validate-test"]="${{ needs.validate-test.result }}"
             ["renovate-config-validation"]="${{ needs.renovate-config-validation.result }}"
-            ["scaffold-drift-check"]="${{ needs.scaffold-drift-check.result }}"
             ["codeql"]="${{ needs.codeql.result }}"
           )
 

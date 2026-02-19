@@ -118,17 +118,17 @@ This repository uses Renovate with scoped automerge for low-risk updates only:
 Branch protection is expected to enforce:
 
 - PR required before merge
-- Required status checks must pass (require only: `required-checks`)
+- Required status checks must pass (`ci-required`)
 - Branch must be up to date before merge
 - If merge queue is enabled, ensure required-check workflows trigger on `merge_group`
 
 Recommended required status contexts:
 
-- `PR Required Checks / required-checks / required-checks (pull_request)`
-- `PR Required Checks / required-checks / required-checks (merge_group)`
+- `PR Required Checks / ci-required / ci-required (pull_request)`
+- `PR Required Checks / ci-required / ci-required (merge_group)`
 
 Do not require path-filtered workflow checks directly. Use the always-on
-`required-checks` gate from `.github/workflows/pr-required-checks.yaml`
+`ci-required` gate from `.github/workflows/pr-required-checks.yaml`
 (for both `pull_request` and `merge_group` events).
 
 This guarantees automerge can only complete when CI is green.

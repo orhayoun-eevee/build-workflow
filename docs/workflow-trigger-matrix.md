@@ -16,19 +16,27 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 | `.github/workflows/codeql.yaml` | `pull_request`/`push` to `main` (`.github/workflows/**`, `scripts/**`), `schedule`, `workflow_call` | Yes (PR/push/schedule), Indirect (`workflow_call`) | Code scanning for workflow/script automation content |
 | `.github/workflows/renovate-config.yaml` | push to `main` changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
 | `.github/workflows/quality-guardrails.yaml` | `pull_request` to `main` for automation paths, `workflow_call` | Yes (PR), Indirect (`workflow_call`) | Lint/guardrail enforcement for workflows/scripts/toolchain pins |
+| `.github/workflows/renovate-snapshot-update.yaml` | `workflow_call` only | Indirect | Reusable Renovate-only snapshot refresh workflow |
+| `.github/workflows/detect-required-checks-tests.yaml` | `pull_request`/`push` to `main` for detect script and workflow changes | Yes | Validates required-check path detection logic |
 
-## Chart repositories
+## App chart repositories (`radarr-helm`, `sonarr-helm`, `sabnzbd-helm`, `transmission-helm`)
 
 | Workflow | Trigger | Automatic | Purpose |
 |---|---|---|---|
-| `.github/workflows/on-pr.yaml` | `workflow_dispatch` | Manual | Optional manual (break-glass) invocation of reusable `build-workflow` validation (`helm-validate.yaml`) |
 | `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main`, `merge_group` (`checks_requested`) | Yes | Thin wrapper calling centralized `pr-required-checks-chart.yaml` reusable orchestrator |
 | `.github/workflows/on-tag.yaml` | `push` tags `v*` | Yes | Calls reusable `release-chart.yaml` |
 | `.github/workflows/renovate-config.yaml` | push to `main` changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
 | `.github/workflows/renovate-snapshot-update.yaml` | Renovate PR events + `values.yaml` changes | Yes | Regenerate and commit snapshot files for Renovate PRs |
-| `.github/workflows/dependency-review.yaml` | `workflow_dispatch` | Manual | Optional manual (break-glass) dependency review run; PR dependency checks are centralized in `pr-required-checks-chart.yaml` |
 | `.github/workflows/codeql.yaml` | `push` to `main` (`.github/workflows/**`, `scripts/**`), `schedule`, `workflow_dispatch` | Yes | Calls centralized `build-workflow` CodeQL workflow |
-| `.github/workflows/scaffold-drift-check.yaml` | `workflow_dispatch` | Manual | Optional manual (break-glass) scaffold parity verification; PR drift checks are centralized in `pr-required-checks-chart.yaml` |
+
+## helm-common-lib repository
+
+| Workflow | Trigger | Automatic | Purpose |
+|---|---|---|---|
+| `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main`, `merge_group` (`checks_requested`) | Yes | Thin wrapper calling centralized `pr-required-checks-chart.yaml` reusable orchestrator |
+| `.github/workflows/on-tag.yaml` | `push` tags `v*` | Yes | Calls reusable `release-chart.yaml` for `libChart` |
+| `.github/workflows/renovate-config.yaml` | push to `main` changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
+| `.github/workflows/codeql.yaml` | `push` to `main` (`.github/workflows/**`, `scripts/**`), `schedule`, `workflow_dispatch` | Yes | Calls centralized `build-workflow` CodeQL workflow |
 
 ## Docker Validation Image Lifecycle
 
@@ -46,11 +54,10 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 - Consumers do not override `docker_image` or `build_workflow_ref`; runtime/tooling is tied to the called `build-workflow` tag.
 - If reusable workflow behavior must change globally, update `build-workflow` first, then bump pinned tags in all chart repos.
 - Snapshot-update workflows are intentionally scoped to Renovate PRs touching `values.yaml` to avoid self-mutating non-Renovate PRs.
-- Branch protection for `main` should require only the `required-checks` status from `.github/workflows/pr-required-checks.yaml` in each repo.
-- If merge queue is enabled, ensure `.github/workflows/pr-required-checks.yaml` is triggered for `merge_group` and keep only its `required-checks` status required.
+- Branch protection for `main` should require only the `ci-required` status from `.github/workflows/pr-required-checks.yaml` in each repo.
+- If merge queue is enabled, ensure `.github/workflows/pr-required-checks.yaml` is triggered for `merge_group` and keep only its `ci-required` status required.
 - Recommended required status contexts:
-  - `PR Required Checks / required-checks / required-checks (pull_request)`
-  - `PR Required Checks / required-checks / required-checks (merge_group)`
-- Use `on-pr.yaml`, `dependency-review.yaml`, and `scaffold-drift-check.yaml` as manual diagnostics only; do not add them to branch protection required statuses.
+  - `PR Required Checks / ci-required / ci-required (pull_request)`
+  - `PR Required Checks / ci-required / ci-required (merge_group)`
 - Do not mark path-filtered workflows as required checks; skipped path-filtered checks can block merges as pending.
 - `release-chart.yaml` supports keyless signing/attestation (`enable_signing: true`) for published OCI chart artifacts.

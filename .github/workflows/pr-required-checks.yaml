@@ -20,6 +20,7 @@ env:
 
 jobs:
   detect-changes:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -93,8 +94,8 @@ jobs:
       security-events: write
     uses: ./.github/workflows/codeql.yaml
 
-  required-checks:
-    name: required-checks
+  ci-required:
+    name: ci-required
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -105,7 +106,7 @@ jobs:
       - docker-build-smoke
       - renovate-config-validation
       - codeql
-    if: always()
+    if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     steps:
       - name: Validate required job results
         shell: bash
@@ -113,6 +114,7 @@ jobs:
           set -euo pipefail
 
           declare -A job_results=(
+            ["detect-changes"]="${{ needs.detect-changes.result }}"
             ["quality-guardrails"]="${{ needs.quality-guardrails.result }}"
             ["docker-build-smoke"]="${{ needs.docker-build-smoke.result }}"
             ["renovate-config-validation"]="${{ needs.renovate-config-validation.result }}"

@@ -26,6 +26,7 @@ concurrency:
 
 jobs:
   lint-automation:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -207,7 +208,7 @@ jobs:
 
           for file in "${required_files[@]}"; do
             grep -Eq '^name:[[:space:]]+PR Required Checks$' "${file}" || contract_errors+=("${file}: missing workflow name 'PR Required Checks'")
-            grep -Eq '^[[:space:]]+name:[[:space:]]+required-checks$' "${chart_required_file}" || contract_errors+=("${chart_required_file}: missing required-checks job name")
+            grep -Eq '^[[:space:]]+name:[[:space:]]+ci-required$' "${chart_required_file}" || contract_errors+=("${chart_required_file}: missing ci-required job name")
             grep -Eq '^[[:space:]]+merge_group:' "${file}" || contract_errors+=("${file}: missing merge_group trigger")
           done
 
