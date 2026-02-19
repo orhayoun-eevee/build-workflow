@@ -122,6 +122,11 @@ Branch protection is expected to enforce:
 - Branch must be up to date before merge
 - If merge queue is enabled, ensure required-check workflows trigger on `merge_group`
 
+Recommended required status contexts:
+
+- `PR Required Checks / required-checks / required-checks (pull_request)`
+- `PR Required Checks / required-checks / required-checks (merge_group)`
+
 Do not require path-filtered workflow checks directly. Use the always-on
 `required-checks` gate from `.github/workflows/pr-required-checks.yaml`
 (for both `pull_request` and `merge_group` events).

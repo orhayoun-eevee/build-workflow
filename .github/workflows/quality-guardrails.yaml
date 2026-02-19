@@ -134,6 +134,84 @@ jobs:
           fi
           echo "Guardrail checks passed." > reports/guardrails.txt
 
+      - name: Require explicit permissions blocks in workflows and templates
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          missing_permissions=()
+          while IFS= read -r file; do
+            if ! grep -Eq '^permissions:' "${file}"; then
+              missing_permissions+=("${file}")
+            fi
+          done < <(find .github/workflows templates -type f \( -name '*.yaml' -o -name '*.yml' \) | sort)
+
+          if [[ "${#missing_permissions[@]}" -gt 0 ]]; then
+            printf 'Missing top-level permissions block in:\n' | tee reports/permissions-check.txt
+            printf '%s\n' "${missing_permissions[@]}" | tee -a reports/permissions-check.txt
+            exit 1
+          fi
+
+          echo "Permissions block checks passed." > reports/permissions-check.txt
+
+      - name: Disallow unpinned third-party actions
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          bad_refs=()
+
+          while IFS= read -r ref; do
+            [[ -z "${ref}" ]] && continue
+
+            # Local reusable workflows in same repo.
+            if [[ "${ref}" == ./* ]]; then
+              continue
+            fi
+
+            # Internal reusable workflows pinned to release tags or template token.
+            if [[ "${ref}" =~ ^orhayoun-eevee/build-workflow/.+@v[0-9]+\.[0-9]+\.[0-9]+$ ]] || [[ "${ref}" == *"@__BUILD_WORKFLOW_REF__" ]]; then
+              continue
+            fi
+
+            # All other external actions must be pinned to full commit SHA.
+            if [[ "${ref}" =~ ^[^@]+@[0-9a-f]{40}$ ]]; then
+              continue
+            fi
+
+            bad_refs+=("${ref}")
+          done < <(grep -RhoE 'uses:[[:space:]]*[^[:space:]]+' .github/workflows templates | awk '{print $2}' | sort -u)
+
+          if [[ "${#bad_refs[@]}" -gt 0 ]]; then
+            printf 'Found unpinned action references:\n' | tee reports/action-pinning-check.txt
+            printf '%s\n' "${bad_refs[@]}" | tee -a reports/action-pinning-check.txt
+            exit 1
+          fi
+
+          echo "Action pinning checks passed." > reports/action-pinning-check.txt
+
+      - name: Enforce required-check wrapper contract
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          contract_errors=()
+
+          required_files=(
+            "templates/app-chart/.github/workflows/pr-required-checks.yaml"
+            "templates/helm-common-lib/.github/workflows/pr-required-checks.yaml"
+          )
+
+          for file in "${required_files[@]}"; do
+            grep -Eq '^name:[[:space:]]+PR Required Checks$' "${file}" || contract_errors+=("${file}: missing workflow name 'PR Required Checks'")
+            grep -Eq '^[[:space:]]+name:[[:space:]]+required-checks$' build-workflow/.github/workflows/pr-required-checks-chart.yaml || contract_errors+=("build-workflow/.github/workflows/pr-required-checks-chart.yaml: missing required-checks job name")
+            grep -Eq '^[[:space:]]+merge_group:' "${file}" || contract_errors+=("${file}: missing merge_group trigger")
+          done
+
+          if [[ "${#contract_errors[@]}" -gt 0 ]]; then
+            printf '%s\n' "${contract_errors[@]}" | tee reports/required-checks-contract.txt
+            exit 1
+          fi
+
+          echo "Required-check wrapper contract passed." > reports/required-checks-contract.txt
+
       - name: Ensure Dockerfile download checksums are enforced
         run: |
           set -euo pipefail

@@ -157,6 +157,27 @@ jobs:
 
           echo "Successfully published: ${OCI_REF}"
 
+      - name: Verify published OCI chart can be pulled
+        working-directory: ${{ steps.chart_path.outputs.path }}
+        run: |
+          set -euo pipefail
+          chart_name="${{ steps.publish.outputs.chart_name }}"
+          chart_version="${{ steps.publish.outputs.chart_version }}"
+          pull_dir="$(mktemp -d)"
+
+          helm pull "oci://ghcr.io/${{ github.repository_owner }}/${chart_name}" \
+            --version "${chart_version}" \
+            --destination "${pull_dir}"
+
+          package_file="${pull_dir}/${chart_name}-${chart_version}.tgz"
+          if [[ ! -f "${package_file}" ]]; then
+            echo "ERROR: Pulled chart package was not found: ${package_file}"
+            exit 1
+          fi
+
+          helm show chart "${package_file}" >/dev/null
+          echo "Successfully verified published chart: ${chart_name}:${chart_version}"
+
       - name: Sign OCI chart artifact (keyless)
         if: inputs.enable_signing
         env:

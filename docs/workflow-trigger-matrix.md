@@ -48,6 +48,9 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 - Snapshot-update workflows are intentionally scoped to Renovate PRs touching `values.yaml` to avoid self-mutating non-Renovate PRs.
 - Branch protection for `main` should require only the `required-checks` status from `.github/workflows/pr-required-checks.yaml` in each repo.
 - If merge queue is enabled, ensure `.github/workflows/pr-required-checks.yaml` is triggered for `merge_group` and keep only its `required-checks` status required.
+- Recommended required status contexts:
+  - `PR Required Checks / required-checks / required-checks (pull_request)`
+  - `PR Required Checks / required-checks / required-checks (merge_group)`
 - Use `on-pr.yaml`, `dependency-review.yaml`, and `scaffold-drift-check.yaml` as manual diagnostics only; do not add them to branch protection required statuses.
 - Do not mark path-filtered workflows as required checks; skipped path-filtered checks can block merges as pending.
 - `release-chart.yaml` supports keyless signing/attestation (`enable_signing: true`) for published OCI chart artifacts.
