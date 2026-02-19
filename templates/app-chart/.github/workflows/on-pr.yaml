@@ -1,4 +1,4 @@
-name: PR Validation (Manual)
+name: PR Validation (Manual / Break Glass)
 
 on:
   workflow_dispatch:
@@ -6,6 +6,10 @@ on:
 permissions:
   contents: read
   packages: read
+
+concurrency:
+  group: on-pr-manual-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:

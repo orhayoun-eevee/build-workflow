@@ -1,10 +1,14 @@
-name: Scaffold Drift Check (Manual)
+name: Scaffold Drift Check (Manual / Break Glass)
 
 on:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: scaffold-drift-manual-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   drift-check:

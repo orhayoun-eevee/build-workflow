@@ -120,9 +120,11 @@ Branch protection is expected to enforce:
 - PR required before merge
 - Required status checks must pass (require only: `required-checks`)
 - Branch must be up to date before merge
+- If merge queue is enabled, ensure required-check workflows trigger on `merge_group`
 
 Do not require path-filtered workflow checks directly. Use the always-on
-`required-checks` gate from `.github/workflows/pr-required-checks.yaml`.
+`required-checks` gate from `.github/workflows/pr-required-checks.yaml`
+(for both `pull_request` and `merge_group` events).
 
 This guarantees automerge can only complete when CI is green.
 

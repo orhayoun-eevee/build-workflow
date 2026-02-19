@@ -6,7 +6,7 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 
 | Workflow | Trigger | Automatic | Purpose |
 |---|---|---|---|
-| `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main` (no path filter) | Yes | Single always-present required gate; conditionally runs guardrails/docker-smoke/renovate/codeql validation |
+| `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main`, `merge_group` (`checks_requested`) | Yes | Single always-present required gate; conditionally runs guardrails/docker-smoke/renovate/codeql validation |
 | `.github/workflows/docker-pr-smoke.yaml` | `pull_request` to `main` when `docker/**` or docker workflow files change | Yes | Smoke-build `docker/Dockerfile` before merge |
 | `.github/workflows/docker-build.yaml` | `push` tags `v*`, `workflow_dispatch` | Yes (tag), Manual (`workflow_dispatch`) | Build and push `ghcr.io/<owner>/helm-validate` |
 | `.github/workflows/helm-validate.yaml` | `workflow_call` only | Indirect | Reusable 5-layer Helm validation pipeline |
@@ -21,14 +21,14 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 
 | Workflow | Trigger | Automatic | Purpose |
 |---|---|---|---|
-| `.github/workflows/on-pr.yaml` | `workflow_dispatch` | Manual | Optional manual invocation of reusable `build-workflow` validation (`helm-validate.yaml`) |
-| `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main` | Yes | Thin wrapper calling centralized `pr-required-checks-chart.yaml` reusable orchestrator |
+| `.github/workflows/on-pr.yaml` | `workflow_dispatch` | Manual | Optional manual (break-glass) invocation of reusable `build-workflow` validation (`helm-validate.yaml`) |
+| `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main`, `merge_group` (`checks_requested`) | Yes | Thin wrapper calling centralized `pr-required-checks-chart.yaml` reusable orchestrator |
 | `.github/workflows/on-tag.yaml` | `push` tags `v*` | Yes | Calls reusable `release-chart.yaml` |
 | `.github/workflows/renovate-config.yaml` | PR/push changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
 | `.github/workflows/renovate-snapshot-update.yaml` | Renovate PR events + `values.yaml` changes | Yes | Regenerate and commit snapshot files for Renovate PRs |
-| `.github/workflows/dependency-review.yaml` | `workflow_dispatch` | Manual | Optional manual dependency review run; PR dependency checks are centralized in `pr-required-checks-chart.yaml` |
+| `.github/workflows/dependency-review.yaml` | `workflow_dispatch` | Manual | Optional manual (break-glass) dependency review run; PR dependency checks are centralized in `pr-required-checks-chart.yaml` |
 | `.github/workflows/codeql.yaml` | `push` to `main` (chart automation paths), `schedule`, `workflow_dispatch` | Yes | Calls centralized `build-workflow` CodeQL workflow |
-| `.github/workflows/scaffold-drift-check.yaml` | `workflow_dispatch` | Manual | Optional manual scaffold parity verification; PR drift checks are centralized in `pr-required-checks-chart.yaml` |
+| `.github/workflows/scaffold-drift-check.yaml` | `workflow_dispatch` | Manual | Optional manual (break-glass) scaffold parity verification; PR drift checks are centralized in `pr-required-checks-chart.yaml` |
 
 ## Docker Validation Image Lifecycle
 
@@ -47,6 +47,7 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 - If reusable workflow behavior must change globally, update `build-workflow` first, then bump pinned tags in all chart repos.
 - Snapshot-update workflows are intentionally scoped to Renovate PRs touching `values.yaml` to avoid self-mutating non-Renovate PRs.
 - Branch protection for `main` should require only the `required-checks` status from `.github/workflows/pr-required-checks.yaml` in each repo.
+- If merge queue is enabled, ensure `.github/workflows/pr-required-checks.yaml` is triggered for `merge_group` and keep only its `required-checks` status required.
 - Use `on-pr.yaml`, `dependency-review.yaml`, and `scaffold-drift-check.yaml` as manual diagnostics only; do not add them to branch protection required statuses.
 - Do not mark path-filtered workflows as required checks; skipped path-filtered checks can block merges as pending.
 - `release-chart.yaml` supports keyless signing/attestation (`enable_signing: true`) for published OCI chart artifacts.

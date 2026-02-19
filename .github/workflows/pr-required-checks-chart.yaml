@@ -30,8 +30,10 @@ on:
         required: true
 
 permissions:
+  actions: read
   contents: read
   packages: read
+  security-events: write
 
 concurrency:
   group: required-checks-chart-${{ github.workflow }}-${{ github.ref }}-${{ inputs.repo_name }}
