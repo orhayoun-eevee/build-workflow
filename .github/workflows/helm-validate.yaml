@@ -219,10 +219,6 @@ jobs:
     if: always() && inputs.post_pr_comment && github.event_name == 'pull_request'
     needs: validate
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write
-      pull-requests: write
     steps:
       - name: Post PR Comment
         continue-on-error: true
