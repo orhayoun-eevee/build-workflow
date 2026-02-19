@@ -26,6 +26,10 @@ permissions:
 env:
   RENOVATE_IMAGE: ghcr.io/renovatebot/renovate@sha256:02283d42a0fc5a887fd0987cf7e460ff5fd1f655829f8db2aa15ea12cc223d4e
 
+concurrency:
+  group: renovate-config-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest

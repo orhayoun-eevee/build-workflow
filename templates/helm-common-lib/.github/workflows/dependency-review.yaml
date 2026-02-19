@@ -1,0 +1,13 @@
+name: Dependency Review
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-review:
+    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@__BUILD_WORKFLOW_REF__

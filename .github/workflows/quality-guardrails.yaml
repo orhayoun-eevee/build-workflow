@@ -1,6 +1,7 @@
 name: Quality Guardrails
 
 on:
+  workflow_call:
   pull_request:
     branches:
       - main
@@ -18,6 +19,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: quality-guardrails-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint-automation:
@@ -50,30 +55,37 @@ jobs:
 
       - name: Run shellcheck
         run: |
+          mkdir -p reports
           mapfile -t script_files < <(find scripts -type f -name '*.sh')
           if [ "${#script_files[@]}" -eq 0 ]; then
             echo "No shell scripts found"
+            echo "No shell scripts found" > reports/shellcheck.txt
             exit 0
           fi
-          shellcheck "${script_files[@]}"
+          shellcheck "${script_files[@]}" | tee reports/shellcheck.txt
 
       - name: Run shfmt (check mode)
-        run: shfmt -d scripts
+        run: shfmt -d scripts | tee reports/shfmt.txt
 
       - name: Run actionlint
-        run: actionlint
+        run: actionlint | tee reports/actionlint.txt
 
       - name: Run hadolint
-        run: hadolint --failure-threshold error docker/Dockerfile
+        run: hadolint --failure-threshold error docker/Dockerfile | tee reports/hadolint.txt
 
       - name: Disallow mutable or caller-controlled helm-validate refs
         run: |
           set -euo pipefail
+          mkdir -p reports
           offending_files=$(grep -R -l "ghcr.io/orhayoun-eevee/helm-validate:latest" .github/workflows templates || true)
           offending_files=$(echo "${offending_files}" | grep -Ev "quality-guardrails\\.yaml" || true)
           if [[ -n "${offending_files}" ]]; then
             echo "Found mutable helm-validate image tags (:latest) in consumer workflows:"
             echo "${offending_files}"
+            {
+              echo "Found mutable helm-validate image tags (:latest) in consumer workflows:"
+              echo "${offending_files}"
+            } > reports/guardrails.txt
             exit 1
           fi
 
@@ -82,6 +94,10 @@ jobs:
           if [[ -n "${override_files}" ]]; then
             echo "Found disallowed caller override inputs (docker_image/build_workflow_ref):"
             echo "${override_files}"
+            {
+              echo "Found disallowed caller override inputs (docker_image/build_workflow_ref):"
+              echo "${override_files}"
+            } > reports/guardrails.txt
             exit 1
           fi
 
@@ -90,12 +106,18 @@ jobs:
           if [[ -n "${mutable_workflow_refs}" ]]; then
             echo "Found mutable build-workflow references (@main):"
             echo "${mutable_workflow_refs}"
+            {
+              echo "Found mutable build-workflow references (@main):"
+              echo "${mutable_workflow_refs}"
+            } > reports/guardrails.txt
             exit 1
           fi
+          echo "Guardrail checks passed." > reports/guardrails.txt
 
       - name: Ensure Dockerfile download checksums are enforced
         run: |
           set -euo pipefail
+          mkdir -p reports
           required_vars=(
             HELM_SHA256
             KUBECONFORM_SHA256
@@ -115,3 +137,12 @@ jobs:
             echo "Expected checksum verification for all downloaded binaries."
             exit 1
           fi
+          echo "Dockerfile checksum enforcement checks passed." > reports/dockerfile-checksums.txt
+
+      - name: Upload lint reports
+        if: always()
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+        with:
+          name: quality-guardrails-reports
+          path: reports/
+          retention-days: 7

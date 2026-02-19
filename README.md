@@ -25,10 +25,11 @@ build-workflow/
 ├── .github/workflows/
 │   ├── helm-validate.yaml     # Reusable: 5-layer validation pipeline
 │   ├── release-chart.yaml     # Reusable: publish chart to OCI registry
+│   ├── dependency-review.yaml # Reusable: dependency risk review for PRs
 │   ├── docker-build.yaml      # Internal: build & push the Docker image
 │   ├── docker-pr-smoke.yaml   # Internal: PR smoke build for Dockerfile changes
 │   ├── pr-required-checks.yaml # Internal: always-on PR gate for branch protection
-│   └── quality-guardrails.yaml # Internal: static lint checks for scripts/workflows/Dockerfile
+│   └── quality-guardrails.yaml # Internal + reusable: lint checks and guardrail policy
 ├── docs/
 │   └── workflow-trigger-matrix.md # Trigger ownership and automation matrix
 ├── scripts/
@@ -324,6 +325,21 @@ jobs:
       contents: read
       packages: write
 ```
+
+---
+
+### dependency-review.yaml
+
+**Purpose:** Run dependency risk review for pull requests.
+
+**Triggers:**
+- `pull_request` to `main` (internal use)
+- `workflow_call` (reusable from chart repos)
+
+**How it works:**
+1. Checks out the repository.
+2. Runs pinned `actions/dependency-review-action`.
+3. Fails PR if dependency policy violations are detected.
 
 ---
 
