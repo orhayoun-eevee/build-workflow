@@ -66,7 +66,7 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: v0.1.10
+          ref: v0.1.11
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Detect changed paths
@@ -87,7 +87,7 @@ jobs:
   dependency-review:
     permissions:
       contents: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.10
+    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.11
 
   validate-app:
     if: inputs.chart_kind == 'app' && needs.detect-changes.outputs.run_validate == 'true'
@@ -95,7 +95,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.10
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.11
     with:
       chart_path: .
       kubernetes_version: '1.30.0'
@@ -119,7 +119,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.10
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.11
     with:
       chart_path: libChart
       kubernetes_version: '1.30.0'
@@ -142,7 +142,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.10
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.11
     with:
       chart_path: test-chart
       kubernetes_version: '1.30.0'
@@ -165,14 +165,14 @@ jobs:
     if: needs.detect-changes.outputs.run_renovate_validation == 'true'
     permissions:
       contents: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.10
+    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.11
 
   scaffold-drift-check:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_scaffold_drift == 'true'
     permissions:
       contents: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/scaffold-drift-check.yaml@v0.1.10
+    uses: orhayoun-eevee/build-workflow/.github/workflows/scaffold-drift-check.yaml@v0.1.11
     with:
       repo_name: ${{ inputs.repo_name }}
     secrets:
@@ -186,7 +186,7 @@ jobs:
       actions: read
       contents: read
       security-events: write
-    uses: orhayoun-eevee/build-workflow/.github/workflows/codeql.yaml@v0.1.10
+    uses: orhayoun-eevee/build-workflow/.github/workflows/codeql.yaml@v0.1.11
 
   required-checks:
     name: required-checks
