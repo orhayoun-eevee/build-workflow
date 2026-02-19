@@ -112,7 +112,7 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: v0.1.5
+          ref: v0.1.6
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Resolve chart dependencies
