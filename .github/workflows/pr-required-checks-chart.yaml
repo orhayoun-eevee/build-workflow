@@ -105,7 +105,7 @@ jobs:
           } >> "${GITHUB_OUTPUT}"
 
   dependency-review:
-    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.5
+    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.6
 
   validate-app:
     if: inputs.chart_kind == 'app' && needs.detect-changes.outputs.run_validate == 'true'
@@ -113,7 +113,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.5
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.6
     with:
       chart_path: .
       kubernetes_version: '1.30.0'
@@ -137,7 +137,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.5
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.6
     with:
       chart_path: libChart
       kubernetes_version: '1.30.0'
@@ -160,7 +160,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.5
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.6
     with:
       chart_path: test-chart
       kubernetes_version: '1.30.0'
@@ -181,12 +181,12 @@ jobs:
   renovate-config-validation:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_renovate_validation == 'true'
-    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.5
+    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.6
 
   scaffold-drift-check:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_scaffold_drift == 'true'
-    uses: orhayoun-eevee/build-workflow/.github/workflows/scaffold-drift-check.yaml@v0.1.5
+    uses: orhayoun-eevee/build-workflow/.github/workflows/scaffold-drift-check.yaml@v0.1.6
     with:
       repo_name: ${{ inputs.repo_name }}
     secrets:
@@ -196,7 +196,7 @@ jobs:
   codeql:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_codeql == 'true'
-    uses: orhayoun-eevee/build-workflow/.github/workflows/codeql.yaml@v0.1.5
+    uses: orhayoun-eevee/build-workflow/.github/workflows/codeql.yaml@v0.1.6
 
   required-checks:
     name: required-checks
