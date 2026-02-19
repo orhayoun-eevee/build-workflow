@@ -6,12 +6,13 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 
 | Workflow | Trigger | Automatic | Purpose |
 |---|---|---|---|
-| `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main` (no path filter) | Yes | Single always-present required gate; conditionally runs guardrails/docker-smoke/renovate validation |
+| `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main` (no path filter) | Yes | Single always-present required gate; conditionally runs guardrails/docker-smoke/renovate/codeql validation |
 | `.github/workflows/docker-pr-smoke.yaml` | `pull_request` to `main` when `docker/**` or docker workflow files change | Yes | Smoke-build `docker/Dockerfile` before merge |
 | `.github/workflows/docker-build.yaml` | `push` to `main` (docker image changes), `push` tags `v*`, `workflow_dispatch` | Yes (push/tag), Manual (`workflow_dispatch`) | Build and push `ghcr.io/<owner>/helm-validate` |
 | `.github/workflows/helm-validate.yaml` | `workflow_call` only | Indirect | Reusable 5-layer Helm validation pipeline |
 | `.github/workflows/release-chart.yaml` | `workflow_call` only | Indirect | Package and publish Helm chart to GHCR OCI |
 | `.github/workflows/dependency-review.yaml` | `pull_request` to `main`, `workflow_call` | Yes (PR), Indirect (`workflow_call`) | Dependency risk policy check for dependency updates |
+| `.github/workflows/codeql.yaml` | `pull_request`/`push` to `main` (automation paths), `schedule`, `workflow_call` | Yes (PR/push/schedule), Indirect (`workflow_call`) | Code scanning for workflow/script automation content |
 | `.github/workflows/renovate-config.yaml` | PR/push changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
 | `.github/workflows/quality-guardrails.yaml` | `pull_request` to `main` for automation paths, `workflow_call` | Yes (PR), Indirect (`workflow_call`) | Lint/guardrail enforcement for workflows/scripts/toolchain pins |
 
@@ -20,10 +21,12 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 | Workflow | Trigger | Automatic | Purpose |
 |---|---|---|---|
 | `.github/workflows/on-pr.yaml` | `pull_request` to `main` | Yes | Calls reusable `build-workflow` validation (`helm-validate.yaml`) |
+| `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main` | Yes | Single always-present required gate for chart repos (dependency-review, validation, renovate-config, scaffold drift) |
 | `.github/workflows/on-tag.yaml` | `push` tags `v*` | Yes | Calls reusable `release-chart.yaml` |
 | `.github/workflows/renovate-config.yaml` | PR/push changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
 | `.github/workflows/renovate-snapshot-update.yaml` | Renovate PR events + `values.yaml` changes | Yes | Regenerate and commit snapshot files for Renovate PRs |
 | `.github/workflows/dependency-review.yaml` | `pull_request` to `main` | Yes | Calls centralized `build-workflow` dependency review workflow |
+| `.github/workflows/codeql.yaml` | `pull_request`/`push` to `main` (chart automation paths), `schedule` | Yes | Calls centralized `build-workflow` CodeQL workflow |
 | `.github/workflows/scaffold-drift-check.yaml` | PR/push changes to managed scaffold files | Yes | Enforce workflow/scaffold parity with `build-workflow` templates (apps and library) |
 
 ## Docker Validation Image Lifecycle
@@ -42,5 +45,5 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 - Consumers do not override `docker_image` or `build_workflow_ref`; runtime/tooling is tied to the called `build-workflow` tag.
 - If reusable workflow behavior must change globally, update `build-workflow` first, then bump pinned tags in all chart repos.
 - Snapshot-update workflows are intentionally scoped to Renovate PRs touching `values.yaml` to avoid self-mutating non-Renovate PRs.
-- Branch protection for `main` should require only the `required-checks` status from `.github/workflows/pr-required-checks.yaml`.
+- Branch protection for `main` should require only the `required-checks` status from `.github/workflows/pr-required-checks.yaml` in each repo.
 - Do not mark path-filtered workflows as required checks; skipped path-filtered checks can block merges as pending.

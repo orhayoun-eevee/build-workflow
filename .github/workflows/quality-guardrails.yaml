@@ -27,6 +27,13 @@ concurrency:
 jobs:
   lint-automation:
     runs-on: ubuntu-latest
+    env:
+      SHFMT_VERSION: v3.11.0
+      SHFMT_SHA256: 1904ec6bac715c1d05cd7f6612eec8f67a625c3749cb327e5bfb4127d09035ff
+      ACTIONLINT_VERSION: v1.7.8
+      ACTIONLINT_SHA256: be92c2652ab7b6d08425428797ceabeb16e31a781c07bc388456b4e592f3e36a
+      HADOLINT_VERSION: v2.12.0
+      HADOLINT_SHA256: 56de6d5e5ec427e17b74fa48d51271c7fc0d61244bf5c90e828aab8362d55010
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -36,20 +43,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck
 
-          SHFMT_VERSION=v3.11.0
           curl -fsSL -o shfmt "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64"
+          echo "${SHFMT_SHA256}  shfmt" | sha256sum -c -
           chmod +x shfmt
           sudo mv shfmt /usr/local/bin/shfmt
           shfmt --version
 
-          ACTIONLINT_VERSION=v1.7.8
           curl -fsSL "https://github.com/rhysd/actionlint/releases/download/${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION#v}_linux_amd64.tar.gz" -o actionlint.tar.gz
+          echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum -c -
           tar -xzf actionlint.tar.gz actionlint
           chmod +x actionlint
           sudo mv actionlint /usr/local/bin/actionlint
 
-          HADOLINT_VERSION=v2.12.0
           curl -fsSL -o hadolint "https://github.com/hadolint/hadolint/releases/download/${HADOLINT_VERSION}/hadolint-Linux-x86_64"
+          echo "${HADOLINT_SHA256}  hadolint" | sha256sum -c -
           chmod +x hadolint
           sudo mv hadolint /usr/local/bin/hadolint
 
