@@ -37,41 +37,14 @@ jobs:
       - name: Detect changed paths
         id: filter
         shell: bash
+        env:
+          MODE: build
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
-
-          base_sha="${{ github.event.pull_request.base.sha }}"
-          head_sha="${{ github.event.pull_request.head.sha }}"
-
-          changed_files="$(git diff --name-only "${base_sha}" "${head_sha}")"
-
-          run_guardrails=false
-          run_docker_smoke=false
-          run_renovate_validation=false
-          run_codeql=false
-
-          if grep -Eq '^(scripts/|\.github/workflows/|docker/Dockerfile)' <<<"${changed_files}"; then
-            run_guardrails=true
-          fi
-
-          if grep -Eq '^(docker/|\.github/workflows/docker-build\.yaml|\.github/workflows/helm-validate\.yaml)' <<<"${changed_files}"; then
-            run_docker_smoke=true
-          fi
-
-          if grep -Eq '^(renovate\.json|renovate\.json5|\.github/renovate\.json|\.github/renovate\.json5|\.github/workflows/renovate-config\.yaml)' <<<"${changed_files}"; then
-            run_renovate_validation=true
-          fi
-
-          if grep -Eq '^(scripts/|\.github/workflows/|docker/)' <<<"${changed_files}"; then
-            run_codeql=true
-          fi
-
-          {
-            echo "run_guardrails=${run_guardrails}"
-            echo "run_docker_smoke=${run_docker_smoke}"
-            echo "run_renovate_validation=${run_renovate_validation}"
-            echo "run_codeql=${run_codeql}"
-          } >> "${GITHUB_OUTPUT}"
+          ./scripts/detect-required-checks.sh
 
   quality-guardrails:
     needs: detect-changes

@@ -1,0 +1,38 @@
+name: Detect Required Checks Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "scripts/detect-required-checks.sh"
+      - "scripts/test-detect-required-checks.sh"
+      - ".github/workflows/pr-required-checks.yaml"
+      - ".github/workflows/pr-required-checks-chart.yaml"
+      - ".github/workflows/detect-required-checks-tests.yaml"
+  push:
+    branches:
+      - main
+    paths:
+      - "scripts/detect-required-checks.sh"
+      - "scripts/test-detect-required-checks.sh"
+      - ".github/workflows/pr-required-checks.yaml"
+      - ".github/workflows/pr-required-checks-chart.yaml"
+      - ".github/workflows/detect-required-checks-tests.yaml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: detect-required-checks-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-detect-required-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Run detection tests
+        run: ./scripts/test-detect-required-checks.sh

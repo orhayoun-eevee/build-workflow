@@ -9,6 +9,10 @@ permissions:
   contents: read
   packages: write
 
+concurrency:
+  group: on-tag-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   publish-chart:
     uses: orhayoun-eevee/build-workflow/.github/workflows/release-chart.yaml@__BUILD_WORKFLOW_REF__

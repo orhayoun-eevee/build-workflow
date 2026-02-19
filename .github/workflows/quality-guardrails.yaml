@@ -159,6 +159,27 @@ jobs:
           fi
           echo "Dockerfile checksum enforcement checks passed." > reports/dockerfile-checksums.txt
 
+      - name: Ensure renovate coverage for workflow and image refs
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          dep_types=$(jq -r '.customManagers[]?.depTypeTemplate // empty' renovate.json | sort -u)
+          required_dep_types=(workflow-version workflow-image tool-version python-package)
+
+          for dep_type in "${required_dep_types[@]}"; do
+            if ! grep -qx "${dep_type}" <<<"${dep_types}"; then
+              echo "Missing renovate custom manager depTypeTemplate: ${dep_type}"
+              exit 1
+            fi
+          done
+
+          if ! jq -e '.customManagers[]? | select(.managerFilePatterns[]? | test("\\.github/workflows"))' renovate.json >/dev/null; then
+            echo "Missing custom manager coverage for workflow files."
+            exit 1
+          fi
+
+          echo "Renovate coverage checks passed." > reports/renovate-coverage.txt
+
       - name: Upload lint reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
