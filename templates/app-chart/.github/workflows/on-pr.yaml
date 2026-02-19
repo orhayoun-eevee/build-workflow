@@ -1,13 +1,7 @@
-name: PR Validation
+name: PR Validation (Manual)
 
 on:
-  pull_request:
-    branches:
-      - main
-
-concurrency:
-  group: pr-validation-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_dispatch:
 
 permissions:
   contents: read

@@ -192,8 +192,6 @@ jobs:
           {
             echo "## Chart Release"
             echo ""
-            echo "- OCI ref: \
-\`${{ steps.publish.outputs.oci_ref }}\`"
-            echo "- Signing enabled: \
-\`${{ inputs.enable_signing }}\`"
+            echo "- OCI ref: \`${{ steps.publish.outputs.oci_ref }}\`"
+            echo "- Signing enabled: \`${{ inputs.enable_signing }}\`"
           } >> "${GITHUB_STEP_SUMMARY}"

@@ -21,14 +21,14 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 
 | Workflow | Trigger | Automatic | Purpose |
 |---|---|---|---|
-| `.github/workflows/on-pr.yaml` | `pull_request` to `main` | Yes | Calls reusable `build-workflow` validation (`helm-validate.yaml`) |
+| `.github/workflows/on-pr.yaml` | `workflow_dispatch` | Manual | Optional manual invocation of reusable `build-workflow` validation (`helm-validate.yaml`) |
 | `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main` | Yes | Thin wrapper calling centralized `pr-required-checks-chart.yaml` reusable orchestrator |
 | `.github/workflows/on-tag.yaml` | `push` tags `v*` | Yes | Calls reusable `release-chart.yaml` |
 | `.github/workflows/renovate-config.yaml` | PR/push changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
 | `.github/workflows/renovate-snapshot-update.yaml` | Renovate PR events + `values.yaml` changes | Yes | Regenerate and commit snapshot files for Renovate PRs |
-| `.github/workflows/dependency-review.yaml` | `pull_request` to `main` | Yes | Calls centralized `build-workflow` dependency review workflow |
-| `.github/workflows/codeql.yaml` | `pull_request`/`push` to `main` (chart automation paths), `schedule` | Yes | Calls centralized `build-workflow` CodeQL workflow |
-| `.github/workflows/scaffold-drift-check.yaml` | PR/push changes to managed scaffold files | Yes | Enforce workflow/scaffold parity with `build-workflow` templates (apps and library) |
+| `.github/workflows/dependency-review.yaml` | `workflow_dispatch` | Manual | Optional manual dependency review run; PR dependency checks are centralized in `pr-required-checks-chart.yaml` |
+| `.github/workflows/codeql.yaml` | `push` to `main` (chart automation paths), `schedule`, `workflow_dispatch` | Yes | Calls centralized `build-workflow` CodeQL workflow |
+| `.github/workflows/scaffold-drift-check.yaml` | `workflow_dispatch` | Manual | Optional manual scaffold parity verification; PR drift checks are centralized in `pr-required-checks-chart.yaml` |
 
 ## Docker Validation Image Lifecycle
 
@@ -47,5 +47,6 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 - If reusable workflow behavior must change globally, update `build-workflow` first, then bump pinned tags in all chart repos.
 - Snapshot-update workflows are intentionally scoped to Renovate PRs touching `values.yaml` to avoid self-mutating non-Renovate PRs.
 - Branch protection for `main` should require only the `required-checks` status from `.github/workflows/pr-required-checks.yaml` in each repo.
+- Use `on-pr.yaml`, `dependency-review.yaml`, and `scaffold-drift-check.yaml` as manual diagnostics only; do not add them to branch protection required statuses.
 - Do not mark path-filtered workflows as required checks; skipped path-filtered checks can block merges as pending.
 - `release-chart.yaml` supports keyless signing/attestation (`enable_signing: true`) for published OCI chart artifacts.
