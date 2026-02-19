@@ -10,6 +10,7 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 | `.github/workflows/docker-pr-smoke.yaml` | `pull_request` to `main` when `docker/**` or docker workflow files change | Yes | Smoke-build `docker/Dockerfile` before merge |
 | `.github/workflows/docker-build.yaml` | `push` tags `v*`, `workflow_dispatch` | Yes (tag), Manual (`workflow_dispatch`) | Build and push `ghcr.io/<owner>/helm-validate` |
 | `.github/workflows/helm-validate.yaml` | `workflow_call` only | Indirect | Reusable 5-layer Helm validation pipeline |
+| `.github/workflows/pr-required-checks-chart.yaml` | `workflow_call` only | Indirect | Reusable always-on required gate orchestration for chart repos |
 | `.github/workflows/release-chart.yaml` | `workflow_call` only | Indirect | Package and publish Helm chart to GHCR OCI |
 | `.github/workflows/dependency-review.yaml` | `pull_request` to `main`, `workflow_call` | Yes (PR), Indirect (`workflow_call`) | Dependency risk policy check for dependency updates |
 | `.github/workflows/codeql.yaml` | `pull_request`/`push` to `main` (automation paths), `schedule`, `workflow_call` | Yes (PR/push/schedule), Indirect (`workflow_call`) | Code scanning for workflow/script automation content |
@@ -21,7 +22,7 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 | Workflow | Trigger | Automatic | Purpose |
 |---|---|---|---|
 | `.github/workflows/on-pr.yaml` | `pull_request` to `main` | Yes | Calls reusable `build-workflow` validation (`helm-validate.yaml`) |
-| `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main` | Yes | Single always-present required gate for chart repos (dependency-review, validation, renovate-config, scaffold drift, conditional CodeQL) |
+| `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main` | Yes | Thin wrapper calling centralized `pr-required-checks-chart.yaml` reusable orchestrator |
 | `.github/workflows/on-tag.yaml` | `push` tags `v*` | Yes | Calls reusable `release-chart.yaml` |
 | `.github/workflows/renovate-config.yaml` | PR/push changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
 | `.github/workflows/renovate-snapshot-update.yaml` | Renovate PR events + `values.yaml` changes | Yes | Regenerate and commit snapshot files for Renovate PRs |
@@ -47,3 +48,4 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 - Snapshot-update workflows are intentionally scoped to Renovate PRs touching `values.yaml` to avoid self-mutating non-Renovate PRs.
 - Branch protection for `main` should require only the `required-checks` status from `.github/workflows/pr-required-checks.yaml` in each repo.
 - Do not mark path-filtered workflows as required checks; skipped path-filtered checks can block merges as pending.
+- `release-chart.yaml` supports keyless signing/attestation (`enable_signing: true`) for published OCI chart artifacts.
