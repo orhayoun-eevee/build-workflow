@@ -26,6 +26,7 @@ build-workflow/
 │   ├── helm-validate.yaml     # Reusable: 5-layer validation pipeline
 │   ├── release-chart.yaml     # Reusable: publish chart to OCI registry
 │   ├── dependency-review.yaml # Reusable: dependency risk review for PRs
+│   ├── codeql.yaml            # Reusable: code scanning for CI automation content
 │   ├── docker-build.yaml      # Internal: build & push the Docker image
 │   ├── docker-pr-smoke.yaml   # Internal: PR smoke build for Dockerfile changes
 │   ├── pr-required-checks.yaml # Internal: always-on PR gate for branch protection
@@ -179,7 +180,9 @@ jobs:
     with:
       chart_path: .
       kubernetes_version: "1.30.0"
-    secrets: inherit
+    secrets:
+      gh_app_id: ${{ secrets.GHCR_AUTO_APP_ID }}
+      gh_app_private_key: ${{ secrets.GHCR_AUTO_PKEY }}
 ```
 
 ### 4. Add a Makefile for local development
@@ -301,6 +304,7 @@ make validate         # Run all 5 layers
 | Input | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `chart_path` | string | No | `.` | Path to the Helm chart directory |
+| `release_environment` | string | No | `production` | GitHub environment name used for release approvals/policies |
 
 **How it works:**
 1. Verifies `Chart.yaml` version matches the git tag
@@ -321,6 +325,7 @@ jobs:
     uses: orhayoun-eevee/build-workflow/.github/workflows/release-chart.yaml@vX.Y.Z
     with:
       chart_path: .
+      release_environment: production
     permissions:
       contents: read
       packages: write
@@ -340,6 +345,22 @@ jobs:
 1. Checks out the repository.
 2. Runs pinned `actions/dependency-review-action`.
 3. Fails PR if dependency policy violations are detected.
+
+---
+
+### codeql.yaml
+
+**Purpose:** Run CodeQL scanning for workflow/script automation content.
+
+**Triggers:**
+- `workflow_call` (reusable from chart repos)
+- `pull_request` to `main` for automation paths
+- `push` to `main` for automation paths
+- weekly `schedule`
+
+**How it works:**
+1. Initializes CodeQL for `actions` language.
+2. Runs analysis and uploads SARIF results to code scanning.
 
 ---
 

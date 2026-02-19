@@ -69,11 +69,20 @@ on:
         description: 'GitHub App private key for minting installation token'
         required: true
 
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: helm-validate-${{ github.workflow }}-${{ github.ref }}-${{ inputs.chart_path }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/orhayoun-eevee/helm-validate:v0.1.3
+      image: ghcr.io/orhayoun-eevee/helm-validate:v0.1.4
 
     steps:
       - name: Checkout repository
@@ -94,7 +103,7 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: v0.1.3
+          ref: v0.1.4
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Resolve chart dependencies
@@ -177,6 +186,25 @@ jobs:
             echo "| Schema fail-cases | ${fail_case_count} |"
             echo "| Checkov skip rules | ${checkov_skip_count} |"
           } >> "${GITHUB_STEP_SUMMARY}"
+
+          cat > quality-metrics.json <<EOF
+          {
+            "chart_path": "${CHART_PATH}",
+            "unit_test_files": ${unit_test_files},
+            "unit_test_assertions": ${unit_test_assertions},
+            "scenario_count": ${scenario_count},
+            "fail_case_count": ${fail_case_count},
+            "checkov_skip_count": ${checkov_skip_count}
+          }
+          EOF
+
+      - name: Upload validation metrics artifact
+        if: always() && hashFiles('quality-metrics.json') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: validation-metrics-${{ github.job }}-${{ github.run_id }}
+          path: quality-metrics.json
+          retention-days: 14
 
       - name: Post PR Comment
         if: always() && github.event_name == 'pull_request'

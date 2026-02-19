@@ -6,7 +6,13 @@ on:
       - main
 
 permissions:
+  actions: read
   contents: read
+  security-events: write
+
+concurrency:
+  group: pr-required-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   RENOVATE_IMAGE: ghcr.io/renovatebot/renovate@sha256:02283d42a0fc5a887fd0987cf7e460ff5fd1f655829f8db2aa15ea12cc223d4e
@@ -18,6 +24,7 @@ jobs:
       run_guardrails: ${{ steps.filter.outputs.run_guardrails }}
       run_docker_smoke: ${{ steps.filter.outputs.run_docker_smoke }}
       run_renovate_validation: ${{ steps.filter.outputs.run_renovate_validation }}
+      run_codeql: ${{ steps.filter.outputs.run_codeql }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -38,6 +45,7 @@ jobs:
           run_guardrails=false
           run_docker_smoke=false
           run_renovate_validation=false
+          run_codeql=false
 
           if grep -Eq '^(scripts/|\.github/workflows/|docker/Dockerfile)' <<<"${changed_files}"; then
             run_guardrails=true
@@ -51,10 +59,15 @@ jobs:
             run_renovate_validation=true
           fi
 
+          if grep -Eq '^(scripts/|\.github/workflows/|docker/)' <<<"${changed_files}"; then
+            run_codeql=true
+          fi
+
           {
             echo "run_guardrails=${run_guardrails}"
             echo "run_docker_smoke=${run_docker_smoke}"
             echo "run_renovate_validation=${run_renovate_validation}"
+            echo "run_codeql=${run_codeql}"
           } >> "${GITHUB_OUTPUT}"
 
   quality-guardrails:
@@ -86,6 +99,11 @@ jobs:
           docker run --rm -v "$PWD:/repo" -w /repo "${RENOVATE_IMAGE}" renovate-config-validator
           docker run --rm -v "$PWD:/repo" -w /repo "${RENOVATE_IMAGE}" renovate-config-validator --strict
 
+  codeql:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run_codeql == 'true'
+    uses: ./.github/workflows/codeql.yaml
+
   required-checks:
     name: required-checks
     runs-on: ubuntu-latest
@@ -94,6 +112,7 @@ jobs:
       - quality-guardrails
       - docker-build-smoke
       - renovate-config-validation
+      - codeql
     if: always()
     steps:
       - name: Validate required job results
@@ -105,6 +124,7 @@ jobs:
             ["quality-guardrails"]="${{ needs.quality-guardrails.result }}"
             ["docker-build-smoke"]="${{ needs.docker-build-smoke.result }}"
             ["renovate-config-validation"]="${{ needs.renovate-config-validation.result }}"
+            ["codeql"]="${{ needs.codeql.result }}"
           )
 
           failed=0

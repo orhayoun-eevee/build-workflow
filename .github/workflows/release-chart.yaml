@@ -8,16 +8,26 @@ on:
         required: false
         type: string
         default: '.'
+      release_environment:
+        description: 'GitHub environment for publish approvals/policies'
+        required: false
+        type: string
+        default: 'production'
 
 # Security: Restrict permissions to minimum needed
 permissions:
   contents: read
   packages: write
 
+concurrency:
+  group: release-chart-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   release:
     name: Publish Helm Chart to GitHub OCI
     runs-on: ubuntu-latest
+    environment: ${{ inputs.release_environment }}
     env:
       YQ_VERSION: v4.52.4
       YQ_SHA256: 0c4d965ea944b64b8fddaf7f27779ee3034e5693263786506ccd1c120f184e8c
