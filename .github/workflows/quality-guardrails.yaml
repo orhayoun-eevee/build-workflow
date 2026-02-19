@@ -201,7 +201,7 @@ jobs:
 
           for file in "${required_files[@]}"; do
             grep -Eq '^name:[[:space:]]+PR Required Checks$' "${file}" || contract_errors+=("${file}: missing workflow name 'PR Required Checks'")
-            grep -Eq '^[[:space:]]+name:[[:space:]]+required-checks$' build-workflow/.github/workflows/pr-required-checks-chart.yaml || contract_errors+=("build-workflow/.github/workflows/pr-required-checks-chart.yaml: missing required-checks job name")
+            grep -Eq '^[[:space:]]+name:[[:space:]]+required-checks$' .github/workflows/pr-required-checks-chart.yaml || contract_errors+=(".github/workflows/pr-required-checks-chart.yaml: missing required-checks job name")
             grep -Eq '^[[:space:]]+merge_group:' "${file}" || contract_errors+=("${file}: missing merge_group trigger")
           done
 
