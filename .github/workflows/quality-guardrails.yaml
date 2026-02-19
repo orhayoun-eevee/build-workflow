@@ -173,7 +173,7 @@ jobs:
             fi
           done
 
-          if ! jq -e '.customManagers[]? | select(.managerFilePatterns[]? | test("\\.github/workflows"))' renovate.json >/dev/null; then
+          if ! jq -e '.customManagers[]? | select(any(.managerFilePatterns[]?; contains("workflows")))' renovate.json >/dev/null; then
             echo "Missing custom manager coverage for workflow files."
             exit 1
           fi
