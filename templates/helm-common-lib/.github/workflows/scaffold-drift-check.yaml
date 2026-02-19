@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/on-pr.yaml'
       - '.github/workflows/on-tag.yaml'
+      - '.github/workflows/dependency-review.yaml'
       - '.github/workflows/renovate-config.yaml'
       - '.github/workflows/scaffold-drift-check.yaml'
   push:
@@ -13,6 +14,7 @@ on:
     paths:
       - '.github/workflows/on-pr.yaml'
       - '.github/workflows/on-tag.yaml'
+      - '.github/workflows/dependency-review.yaml'
       - '.github/workflows/renovate-config.yaml'
       - '.github/workflows/scaffold-drift-check.yaml'
 
