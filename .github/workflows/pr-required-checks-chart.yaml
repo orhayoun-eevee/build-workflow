@@ -30,8 +30,10 @@ on:
         required: true
 
 permissions:
+  actions: read
   contents: read
   packages: read
+  security-events: write
 
 concurrency:
   group: required-checks-chart-${{ github.workflow }}-${{ github.ref }}-${{ inputs.repo_name }}
@@ -196,6 +198,10 @@ jobs:
   codeql:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_codeql == 'true'
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     uses: orhayoun-eevee/build-workflow/.github/workflows/codeql.yaml@v0.1.6
 
   required-checks:
