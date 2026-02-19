@@ -29,7 +29,6 @@ build-workflow/
 │   ├── dependency-review.yaml # Reusable: dependency risk review for PRs
 │   ├── codeql.yaml            # Reusable: code scanning for CI automation content
 │   ├── docker-build.yaml      # Internal: build & push the Docker image
-│   ├── docker-pr-smoke.yaml   # Internal: PR smoke build for Dockerfile changes
 │   ├── pr-required-checks.yaml # Internal: always-on PR gate for branch protection
 │   └── quality-guardrails.yaml # Internal + reusable: lint checks and guardrail policy
 ├── docs/

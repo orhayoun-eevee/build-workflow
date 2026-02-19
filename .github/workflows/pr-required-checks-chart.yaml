@@ -3,10 +3,6 @@ name: PR Required Checks (Chart Repos)
 on:
   workflow_call:
     inputs:
-      repo_name:
-        description: 'Repository name used by required-checks context'
-        required: true
-        type: string
       chart_kind:
         description: 'Chart type: app or lib'
         required: true
@@ -28,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: required-checks-chart-${{ github.workflow }}-${{ github.ref }}-${{ inputs.repo_name }}
+  group: required-checks-chart-${{ github.workflow }}-${{ github.ref }}-${{ github.repository }}
   cancel-in-progress: true
 
 jobs:
@@ -80,6 +76,7 @@ jobs:
 
   dependency-review:
     if: github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name == github.repository)
+    timeout-minutes: 10
     permissions:
       contents: read
     uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.12
@@ -87,6 +84,7 @@ jobs:
   validate-app:
     if: inputs.chart_kind == 'app' && needs.detect-changes.outputs.run_validate == 'true'
     needs: detect-changes
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: read
@@ -103,7 +101,6 @@ jobs:
       run_policy: true
       target_branch: main
       run_version_check: true
-      post_pr_comment: false
     secrets:
       gh_app_id: ${{ secrets.gh_app_id }}
       gh_app_private_key: ${{ secrets.gh_app_private_key }}
@@ -111,6 +108,7 @@ jobs:
   validate-lib:
     if: inputs.chart_kind == 'lib' && needs.detect-changes.outputs.run_validate == 'true'
     needs: detect-changes
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: read
@@ -124,7 +122,6 @@ jobs:
       run_tests: false
       run_policy: false
       run_version_check: true
-      post_pr_comment: false
     secrets:
       gh_app_id: ${{ secrets.gh_app_id }}
       gh_app_private_key: ${{ secrets.gh_app_private_key }}
@@ -134,6 +131,7 @@ jobs:
     needs:
       - detect-changes
       - validate-lib
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: read
@@ -150,7 +148,6 @@ jobs:
       run_policy: true
       target_branch: main
       run_version_check: false
-      post_pr_comment: false
     secrets:
       gh_app_id: ${{ secrets.gh_app_id }}
       gh_app_private_key: ${{ secrets.gh_app_private_key }}
@@ -158,6 +155,7 @@ jobs:
   renovate-config-validation:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_renovate_validation == 'true'
+    timeout-minutes: 10
     permissions:
       contents: read
     uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.12
@@ -165,6 +163,7 @@ jobs:
   codeql:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_codeql == 'true'
+    timeout-minutes: 30
     permissions:
       actions: read
       contents: read

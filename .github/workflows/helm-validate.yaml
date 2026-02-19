@@ -61,11 +61,6 @@ on:
         required: false
         type: string
         default: ''
-      post_pr_comment:
-        description: 'Post a summary comment on pull requests'
-        required: false
-        type: boolean
-        default: false
     secrets:
       gh_app_id:
         description: 'GitHub App ID for minting installation token'
@@ -76,6 +71,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: helm-validate-${{ github.workflow }}-${{ github.ref }}-${{ inputs.chart_path }}
