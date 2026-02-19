@@ -8,8 +8,6 @@ on:
 permissions:
   contents: read
   packages: read
-  issues: write
-  pull-requests: write
 
 concurrency:
   group: required-checks-${{ github.workflow }}-${{ github.ref }}
@@ -22,6 +20,7 @@ jobs:
       run_validate: ${{ steps.filter.outputs.run_validate }}
       run_renovate_validation: ${{ steps.filter.outputs.run_renovate_validation }}
       run_scaffold_drift: ${{ steps.filter.outputs.run_scaffold_drift }}
+      run_codeql: ${{ steps.filter.outputs.run_codeql }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -38,6 +37,7 @@ jobs:
           run_validate=false
           run_renovate_validation=false
           run_scaffold_drift=false
+          run_codeql=false
 
           if grep -Eq '^(libChart/|test-chart/|tests/|scripts/|Makefile|ct\.yaml|\.checkov\.yaml|\.kube-linter\.yaml)' <<<"${changed_files}"; then
             run_validate=true
@@ -51,10 +51,15 @@ jobs:
             run_scaffold_drift=true
           fi
 
+          if grep -Eq '^(\.github/workflows/|scripts/|libChart/|test-chart/)' <<<"${changed_files}"; then
+            run_codeql=true
+          fi
+
           {
             echo "run_validate=${run_validate}"
             echo "run_renovate_validation=${run_renovate_validation}"
             echo "run_scaffold_drift=${run_scaffold_drift}"
+            echo "run_codeql=${run_codeql}"
           } >> "${GITHUB_OUTPUT}"
 
   dependency-review:
@@ -63,6 +68,11 @@ jobs:
   validate-lib:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_validate == 'true'
+    permissions:
+      contents: read
+      packages: read
+      issues: write
+      pull-requests: write
     uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@__BUILD_WORKFLOW_REF__
     with:
       chart_path: libChart
@@ -82,6 +92,11 @@ jobs:
       - detect-changes
       - validate-lib
     if: needs.detect-changes.outputs.run_validate == 'true'
+    permissions:
+      contents: read
+      packages: read
+      issues: write
+      pull-requests: write
     uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@__BUILD_WORKFLOW_REF__
     with:
       chart_path: test-chart
@@ -114,6 +129,11 @@ jobs:
       gh_app_id: ${{ secrets.GHCR_AUTO_APP_ID }}
       gh_app_private_key: ${{ secrets.GHCR_AUTO_PKEY }}
 
+  codeql:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run_codeql == 'true'
+    uses: orhayoun-eevee/build-workflow/.github/workflows/codeql.yaml@__BUILD_WORKFLOW_REF__
+
   required-checks:
     name: required-checks
     if: always()
@@ -125,6 +145,7 @@ jobs:
       - validate-test
       - renovate-config-validation
       - scaffold-drift-check
+      - codeql
     steps:
       - name: Validate required job results
         shell: bash
@@ -137,6 +158,7 @@ jobs:
             ["validate-test"]="${{ needs.validate-test.result }}"
             ["renovate-config-validation"]="${{ needs.renovate-config-validation.result }}"
             ["scaffold-drift-check"]="${{ needs.scaffold-drift-check.result }}"
+            ["codeql"]="${{ needs.codeql.result }}"
           )
 
           failed=0
