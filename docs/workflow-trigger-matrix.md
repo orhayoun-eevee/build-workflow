@@ -14,7 +14,7 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 | `.github/workflows/release-chart.yaml` | `workflow_call` only | Indirect | Package and publish Helm chart to GHCR OCI |
 | `.github/workflows/dependency-review.yaml` | `pull_request` to `main`, `workflow_call` | Yes (PR), Indirect (`workflow_call`) | Dependency risk policy check for dependency updates |
 | `.github/workflows/codeql.yaml` | `pull_request`/`push` to `main` (automation paths), `schedule`, `workflow_call` | Yes (PR/push/schedule), Indirect (`workflow_call`) | Code scanning for workflow/script automation content |
-| `.github/workflows/renovate-config.yaml` | PR/push changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
+| `.github/workflows/renovate-config.yaml` | push to `main` changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
 | `.github/workflows/quality-guardrails.yaml` | `pull_request` to `main` for automation paths, `workflow_call` | Yes (PR), Indirect (`workflow_call`) | Lint/guardrail enforcement for workflows/scripts/toolchain pins |
 
 ## Chart repositories
@@ -24,7 +24,7 @@ This document defines exactly which workflow runs, when it runs, and what it is 
 | `.github/workflows/on-pr.yaml` | `workflow_dispatch` | Manual | Optional manual (break-glass) invocation of reusable `build-workflow` validation (`helm-validate.yaml`) |
 | `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main`, `merge_group` (`checks_requested`) | Yes | Thin wrapper calling centralized `pr-required-checks-chart.yaml` reusable orchestrator |
 | `.github/workflows/on-tag.yaml` | `push` tags `v*` | Yes | Calls reusable `release-chart.yaml` |
-| `.github/workflows/renovate-config.yaml` | PR/push changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
+| `.github/workflows/renovate-config.yaml` | push to `main` changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
 | `.github/workflows/renovate-snapshot-update.yaml` | Renovate PR events + `values.yaml` changes | Yes | Regenerate and commit snapshot files for Renovate PRs |
 | `.github/workflows/dependency-review.yaml` | `workflow_dispatch` | Manual | Optional manual (break-glass) dependency review run; PR dependency checks are centralized in `pr-required-checks-chart.yaml` |
 | `.github/workflows/codeql.yaml` | `push` to `main` (chart automation paths), `schedule`, `workflow_dispatch` | Yes | Calls centralized `build-workflow` CodeQL workflow |

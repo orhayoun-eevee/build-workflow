@@ -1,13 +1,6 @@
 name: Validate Renovate Config
 
 on:
-  pull_request:
-    paths:
-      - 'renovate.json'
-      - 'renovate.json5'
-      - '.github/renovate.json'
-      - '.github/renovate.json5'
-      - '.github/workflows/renovate-config.yaml'
   push:
     branches:
       - main

@@ -53,61 +53,39 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Mint app token for helper checkout
+        id: app-token
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        with:
+          app-id: ${{ secrets.gh_app_id }}
+          private-key: ${{ secrets.gh_app_private_key }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Checkout build-workflow helpers
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: orhayoun-eevee/build-workflow
+          path: .build-workflow
+          ref: v0.1.8
+          token: ${{ steps.app-token.outputs.token }}
+
       - name: Detect changed paths
         id: filter
         shell: bash
         env:
+          MODE: chart
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           CHART_KIND: ${{ inputs.chart_kind }}
           ENABLE_SCAFFOLD_DRIFT: ${{ inputs.enable_scaffold_drift }}
           ENABLE_CODEQL: ${{ inputs.enable_codeql }}
         run: |
           set -euo pipefail
-
-          changed_files="$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")"
-          run_validate=false
-          run_renovate_validation=false
-          run_scaffold_drift=false
-          run_codeql=false
-
-          if [[ "${CHART_KIND}" == "lib" ]]; then
-            if grep -Eq '^(libChart/|test-chart/|tests/|scripts/|Makefile|ct\.yaml|\.checkov\.yaml|\.kube-linter\.yaml)' <<<"${changed_files}"; then
-              run_validate=true
-            fi
-
-            if [[ "${ENABLE_SCAFFOLD_DRIFT}" == "true" ]] && grep -Eq '^(\.github/workflows/on-pr\.yaml|\.github/workflows/on-tag\.yaml|\.github/workflows/dependency-review\.yaml|\.github/workflows/codeql\.yaml|\.github/workflows/pr-required-checks\.yaml|\.github/workflows/renovate-config\.yaml|\.github/workflows/scaffold-drift-check\.yaml)' <<<"${changed_files}"; then
-              run_scaffold_drift=true
-            fi
-
-            if [[ "${ENABLE_CODEQL}" == "true" ]] && grep -Eq '^(\.github/workflows/|scripts/|libChart/|test-chart/)' <<<"${changed_files}"; then
-              run_codeql=true
-            fi
-          else
-            if grep -Eq '^(Chart\.yaml|Chart\.lock|values\.yaml|templates/|tests/|charts/|scripts/|Makefile|ct\.yaml|\.checkov\.yaml|\.kube-linter\.yaml)' <<<"${changed_files}"; then
-              run_validate=true
-            fi
-
-            if [[ "${ENABLE_SCAFFOLD_DRIFT}" == "true" ]] && grep -Eq '^(Makefile|scripts/bump-version\.sh|\.github/workflows/on-pr\.yaml|\.github/workflows/on-tag\.yaml|\.github/workflows/dependency-review\.yaml|\.github/workflows/codeql\.yaml|\.github/workflows/pr-required-checks\.yaml|\.github/workflows/renovate-config\.yaml|\.github/workflows/renovate-snapshot-update\.yaml|\.github/workflows/scaffold-drift-check\.yaml)' <<<"${changed_files}"; then
-              run_scaffold_drift=true
-            fi
-
-            if [[ "${ENABLE_CODEQL}" == "true" ]] && grep -Eq '^(\.github/workflows/|scripts/|templates/|values\.yaml)' <<<"${changed_files}"; then
-              run_codeql=true
-            fi
-          fi
-
-          if grep -Eq '^(renovate\.json|renovate\.json5|\.github/renovate\.json|\.github/renovate\.json5|\.github/workflows/renovate-config\.yaml)' <<<"${changed_files}"; then
-            run_renovate_validation=true
-          fi
-
-          {
-            echo "run_validate=${run_validate}"
-            echo "run_renovate_validation=${run_renovate_validation}"
-            echo "run_scaffold_drift=${run_scaffold_drift}"
-            echo "run_codeql=${run_codeql}"
-          } >> "${GITHUB_OUTPUT}"
+          ./.build-workflow/scripts/detect-required-checks.sh
 
   dependency-review:
-    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.7
+    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.8
 
   validate-app:
     if: inputs.chart_kind == 'app' && needs.detect-changes.outputs.run_validate == 'true'
@@ -115,7 +93,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.7
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.8
     with:
       chart_path: .
       kubernetes_version: '1.30.0'
@@ -139,7 +117,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.7
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.8
     with:
       chart_path: libChart
       kubernetes_version: '1.30.0'
@@ -162,7 +140,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.7
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.8
     with:
       chart_path: test-chart
       kubernetes_version: '1.30.0'
@@ -183,12 +161,12 @@ jobs:
   renovate-config-validation:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_renovate_validation == 'true'
-    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.7
+    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.8
 
   scaffold-drift-check:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_scaffold_drift == 'true'
-    uses: orhayoun-eevee/build-workflow/.github/workflows/scaffold-drift-check.yaml@v0.1.7
+    uses: orhayoun-eevee/build-workflow/.github/workflows/scaffold-drift-check.yaml@v0.1.8
     with:
       repo_name: ${{ inputs.repo_name }}
     secrets:
@@ -198,7 +176,7 @@ jobs:
   codeql:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_codeql == 'true'
-    uses: orhayoun-eevee/build-workflow/.github/workflows/codeql.yaml@v0.1.7
+    uses: orhayoun-eevee/build-workflow/.github/workflows/codeql.yaml@v0.1.8
 
   required-checks:
     name: required-checks

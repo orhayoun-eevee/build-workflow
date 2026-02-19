@@ -85,7 +85,7 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/orhayoun-eevee/helm-validate:v0.1.7
+      image: ghcr.io/orhayoun-eevee/helm-validate:v0.1.8
     outputs:
       unit_test_files: ${{ steps.quality-metrics.outputs.unit_test_files }}
       unit_test_assertions: ${{ steps.quality-metrics.outputs.unit_test_assertions }}
@@ -112,11 +112,23 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: v0.1.7
+          ref: v0.1.8
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Resolve chart dependencies
         run: helm dependency build "${{ inputs.chart_path }}"
+
+      - name: Prepare artifact names
+        id: artifact-names
+        shell: bash
+        run: |
+          set -euo pipefail
+          chart_path="${{ inputs.chart_path }}"
+          safe_chart_path="$(echo "${chart_path}" | sed 's|/|-|g' | sed 's|^\.$|root|')"
+          {
+            echo "logs_artifact_name=validation-logs-${safe_chart_path}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            echo "metrics_artifact_name=validation-metrics-${safe_chart_path}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          } >> "${GITHUB_OUTPUT}"
 
       - name: Ensure helm-unittest plugin
         run: |
@@ -126,6 +138,9 @@ jobs:
           helm plugin list
 
       - name: Run validation pipeline
+        id: run-validation
+        continue-on-error: true
+        shell: bash
         env:
           CHART_PATH: ${{ inputs.chart_path }}
           KUBERNETES_VERSION: ${{ inputs.kubernetes_version }}
@@ -140,7 +155,9 @@ jobs:
           RUN_VERSION_CHECK: ${{ inputs.run_version_check }}
           CHECKOV_EXTRA_ARGS: ${{ inputs.checkov_extra_args }}
           CONFIGS_DIR: .build-workflow/configs
-        run: .build-workflow/scripts/validate-orchestrator.sh
+        run: |
+          set -o pipefail
+          .build-workflow/scripts/validate-orchestrator.sh 2>&1 | tee validation-orchestrator.log
 
       - name: Compute quality metrics
         id: quality-metrics
@@ -182,8 +199,6 @@ jobs:
             echo "scenario_count=${scenario_count}"
             echo "fail_case_count=${fail_case_count}"
             echo "checkov_skip_count=${checkov_skip_count}"
-            safe_chart_path="$(echo "${CHART_PATH}" | sed 's|/|-|g' | sed 's|\.$|root|g')"
-            echo "metrics_artifact_name=validation-metrics-${safe_chart_path}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           } >> "${GITHUB_OUTPUT}"
 
           {
@@ -213,6 +228,31 @@ jobs:
         if: always() && hashFiles('quality-metrics.json') != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ${{ steps.quality-metrics.outputs.metrics_artifact_name }}
+          name: ${{ steps.artifact-names.outputs.metrics_artifact_name }}
           path: quality-metrics.json
           retention-days: 14
+
+      - name: Upload validation run logs
+        if: always() && hashFiles('validation-orchestrator.log') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ steps.artifact-names.outputs.logs_artifact_name }}
+          path: validation-orchestrator.log
+          retention-days: 14
+
+      - name: Summarize validation result
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Validation Run"
+            echo ""
+            echo "- Chart path: \`${{ inputs.chart_path }}\`"
+            echo "- Pipeline result: \`${{ steps.run-validation.outcome }}\`"
+            echo "- Logs artifact: \`${{ steps.artifact-names.outputs.logs_artifact_name }}\`"
+            echo "- Metrics artifact: \`${{ steps.artifact-names.outputs.metrics_artifact_name }}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Fail job when validation pipeline failed
+        if: steps.run-validation.outcome == 'failure'
+        run: exit 1
