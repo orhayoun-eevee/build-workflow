@@ -25,6 +25,7 @@ concurrency:
 jobs:
   drift-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout chart repo
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -44,7 +45,7 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: build-workflow
-          ref: v0.1.9
+          ref: v0.1.10
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Verify scaffold sync
@@ -53,10 +54,10 @@ jobs:
           set -euo pipefail
           cp ../build-workflow/scripts/sync-chart-scaffold.sh ./sync-chart-scaffold.sh
           chmod +x ./sync-chart-scaffold.sh
-          ./sync-chart-scaffold.sh --repos "${{ inputs.repo_name }}" --ref "v0.1.9" --root "$(pwd)/.."
+          ./sync-chart-scaffold.sh --repos "${{ inputs.repo_name }}" --ref "v0.1.10" --root "$(pwd)/.."
 
           if ! git diff --quiet -- .; then
-            echo "Scaffold drift detected. Run build-workflow/scripts/sync-chart-scaffold.sh --apply --repos ${{ inputs.repo_name }} --ref v0.1.9."
+            echo "Scaffold drift detected. Run build-workflow/scripts/sync-chart-scaffold.sh --apply --repos ${{ inputs.repo_name }} --ref v0.1.10."
             git --no-pager diff -- .
             exit 1
           fi

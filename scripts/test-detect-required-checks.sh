@@ -100,7 +100,7 @@ EOF
 	assert_contains "${out}" "run_validate=true"
 	assert_contains "${out}" "run_renovate_validation=false"
 	assert_contains "${out}" "run_scaffold_drift=false"
-	assert_contains "${out}" "run_codeql=true"
+	assert_contains "${out}" "run_codeql=false"
 
 	out="${tmpdir}/chart-merge-group.out"
 	: >"${out}"

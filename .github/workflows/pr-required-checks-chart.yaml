@@ -30,10 +30,7 @@ on:
         required: true
 
 permissions:
-  actions: read
   contents: read
-  packages: read
-  security-events: write
 
 concurrency:
   group: required-checks-chart-${{ github.workflow }}-${{ github.ref }}-${{ inputs.repo_name }}
@@ -42,6 +39,9 @@ concurrency:
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     outputs:
       run_validate: ${{ steps.filter.outputs.run_validate }}
       run_renovate_validation: ${{ steps.filter.outputs.run_renovate_validation }}
@@ -66,7 +66,7 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: v0.1.9
+          ref: v0.1.10
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Detect changed paths
@@ -85,7 +85,9 @@ jobs:
           ./.build-workflow/scripts/detect-required-checks.sh
 
   dependency-review:
-    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.9
+    permissions:
+      contents: read
+    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.10
 
   validate-app:
     if: inputs.chart_kind == 'app' && needs.detect-changes.outputs.run_validate == 'true'
@@ -93,7 +95,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.9
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.10
     with:
       chart_path: .
       kubernetes_version: '1.30.0'
@@ -117,7 +119,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.9
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.10
     with:
       chart_path: libChart
       kubernetes_version: '1.30.0'
@@ -140,7 +142,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.9
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.10
     with:
       chart_path: test-chart
       kubernetes_version: '1.30.0'
@@ -161,12 +163,16 @@ jobs:
   renovate-config-validation:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_renovate_validation == 'true'
-    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.9
+    permissions:
+      contents: read
+    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.10
 
   scaffold-drift-check:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_scaffold_drift == 'true'
-    uses: orhayoun-eevee/build-workflow/.github/workflows/scaffold-drift-check.yaml@v0.1.9
+    permissions:
+      contents: read
+    uses: orhayoun-eevee/build-workflow/.github/workflows/scaffold-drift-check.yaml@v0.1.10
     with:
       repo_name: ${{ inputs.repo_name }}
     secrets:
@@ -176,12 +182,19 @@ jobs:
   codeql:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_codeql == 'true'
-    uses: orhayoun-eevee/build-workflow/.github/workflows/codeql.yaml@v0.1.9
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: orhayoun-eevee/build-workflow/.github/workflows/codeql.yaml@v0.1.10
 
   required-checks:
     name: required-checks
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     needs:
       - detect-changes
       - dependency-review

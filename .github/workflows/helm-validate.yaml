@@ -84,8 +84,9 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     container:
-      image: ghcr.io/orhayoun-eevee/helm-validate:v0.1.9
+      image: ghcr.io/orhayoun-eevee/helm-validate:v0.1.10
     outputs:
       unit_test_files: ${{ steps.quality-metrics.outputs.unit_test_files }}
       unit_test_assertions: ${{ steps.quality-metrics.outputs.unit_test_assertions }}
@@ -112,7 +113,7 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: v0.1.9
+          ref: v0.1.10
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Restore Helm caches

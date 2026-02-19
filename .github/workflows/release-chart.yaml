@@ -30,6 +30,7 @@ jobs:
   release:
     name: Publish Helm Chart to GitHub OCI
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment: ${{ inputs.release_environment }}
     permissions:
       contents: read
