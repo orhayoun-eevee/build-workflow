@@ -119,6 +119,19 @@ jobs:
             } > reports/guardrails.txt
             exit 1
           fi
+
+          invalid_version_refs=$(grep -R -n -E 'uses:\s*orhayoun-eevee/build-workflow/.github/workflows/[^@\s]+@[^[:space:]]+' templates .github/workflows || true)
+          invalid_version_refs=$(echo "${invalid_version_refs}" | grep -Ev '@v[0-9]+\.[0-9]+\.[0-9]+|@__BUILD_WORKFLOW_REF__' || true)
+          invalid_version_refs=$(echo "${invalid_version_refs}" | grep -Ev 'quality-guardrails\\.yaml' || true)
+          if [[ -n "${invalid_version_refs}" ]]; then
+            echo "Found invalid build-workflow references (expected @vX.Y.Z):"
+            echo "${invalid_version_refs}"
+            {
+              echo "Found invalid build-workflow references (expected @vX.Y.Z):"
+              echo "${invalid_version_refs}"
+            } > reports/guardrails.txt
+            exit 1
+          fi
           echo "Guardrail checks passed." > reports/guardrails.txt
 
       - name: Ensure Dockerfile download checksums are enforced

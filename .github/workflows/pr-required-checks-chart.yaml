@@ -1,0 +1,244 @@
+name: PR Required Checks (Chart Repos)
+
+on:
+  workflow_call:
+    inputs:
+      repo_name:
+        description: 'Repository name used by scaffold drift checks'
+        required: true
+        type: string
+      chart_kind:
+        description: 'Chart type: app or lib'
+        required: true
+        type: string
+      enable_codeql:
+        description: 'Enable CodeQL checks when chart or automation paths change'
+        required: false
+        type: boolean
+        default: true
+      enable_scaffold_drift:
+        description: 'Enable scaffold drift check for managed workflow files'
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      gh_app_id:
+        description: 'GitHub App ID for minting installation token'
+        required: true
+      gh_app_private_key:
+        description: 'GitHub App private key for minting installation token'
+        required: true
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: required-checks-chart-${{ github.workflow }}-${{ github.ref }}-${{ inputs.repo_name }}
+  cancel-in-progress: true
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      run_validate: ${{ steps.filter.outputs.run_validate }}
+      run_renovate_validation: ${{ steps.filter.outputs.run_renovate_validation }}
+      run_scaffold_drift: ${{ steps.filter.outputs.run_scaffold_drift }}
+      run_codeql: ${{ steps.filter.outputs.run_codeql }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed paths
+        id: filter
+        shell: bash
+        env:
+          CHART_KIND: ${{ inputs.chart_kind }}
+          ENABLE_SCAFFOLD_DRIFT: ${{ inputs.enable_scaffold_drift }}
+          ENABLE_CODEQL: ${{ inputs.enable_codeql }}
+        run: |
+          set -euo pipefail
+
+          changed_files="$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}")"
+          run_validate=false
+          run_renovate_validation=false
+          run_scaffold_drift=false
+          run_codeql=false
+
+          if [[ "${CHART_KIND}" == "lib" ]]; then
+            if grep -Eq '^(libChart/|test-chart/|tests/|scripts/|Makefile|ct\.yaml|\.checkov\.yaml|\.kube-linter\.yaml)' <<<"${changed_files}"; then
+              run_validate=true
+            fi
+
+            if [[ "${ENABLE_SCAFFOLD_DRIFT}" == "true" ]] && grep -Eq '^(\.github/workflows/on-pr\.yaml|\.github/workflows/on-tag\.yaml|\.github/workflows/dependency-review\.yaml|\.github/workflows/codeql\.yaml|\.github/workflows/pr-required-checks\.yaml|\.github/workflows/renovate-config\.yaml|\.github/workflows/scaffold-drift-check\.yaml)' <<<"${changed_files}"; then
+              run_scaffold_drift=true
+            fi
+
+            if [[ "${ENABLE_CODEQL}" == "true" ]] && grep -Eq '^(\.github/workflows/|scripts/|libChart/|test-chart/)' <<<"${changed_files}"; then
+              run_codeql=true
+            fi
+          else
+            if grep -Eq '^(Chart\.yaml|Chart\.lock|values\.yaml|templates/|tests/|charts/|scripts/|Makefile|ct\.yaml|\.checkov\.yaml|\.kube-linter\.yaml)' <<<"${changed_files}"; then
+              run_validate=true
+            fi
+
+            if [[ "${ENABLE_SCAFFOLD_DRIFT}" == "true" ]] && grep -Eq '^(Makefile|scripts/bump-version\.sh|\.github/workflows/on-pr\.yaml|\.github/workflows/on-tag\.yaml|\.github/workflows/dependency-review\.yaml|\.github/workflows/codeql\.yaml|\.github/workflows/pr-required-checks\.yaml|\.github/workflows/renovate-config\.yaml|\.github/workflows/renovate-snapshot-update\.yaml|\.github/workflows/scaffold-drift-check\.yaml)' <<<"${changed_files}"; then
+              run_scaffold_drift=true
+            fi
+
+            if [[ "${ENABLE_CODEQL}" == "true" ]] && grep -Eq '^(\.github/workflows/|scripts/|templates/|values\.yaml)' <<<"${changed_files}"; then
+              run_codeql=true
+            fi
+          fi
+
+          if grep -Eq '^(renovate\.json|renovate\.json5|\.github/renovate\.json|\.github/renovate\.json5|\.github/workflows/renovate-config\.yaml)' <<<"${changed_files}"; then
+            run_renovate_validation=true
+          fi
+
+          {
+            echo "run_validate=${run_validate}"
+            echo "run_renovate_validation=${run_renovate_validation}"
+            echo "run_scaffold_drift=${run_scaffold_drift}"
+            echo "run_codeql=${run_codeql}"
+          } >> "${GITHUB_OUTPUT}"
+
+  dependency-review:
+    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.5
+
+  validate-app:
+    if: inputs.chart_kind == 'app' && needs.detect-changes.outputs.run_validate == 'true'
+    needs: detect-changes
+    permissions:
+      contents: read
+      packages: read
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.5
+    with:
+      chart_path: .
+      kubernetes_version: '1.30.0'
+      scenarios_dir: tests/scenarios
+      snapshots_dir: tests/snapshots
+      run_syntax: true
+      run_schema: true
+      run_metadata: true
+      run_tests: true
+      run_policy: true
+      target_branch: main
+      run_version_check: true
+      post_pr_comment: false
+    secrets:
+      gh_app_id: ${{ secrets.gh_app_id }}
+      gh_app_private_key: ${{ secrets.gh_app_private_key }}
+
+  validate-lib:
+    if: inputs.chart_kind == 'lib' && needs.detect-changes.outputs.run_validate == 'true'
+    needs: detect-changes
+    permissions:
+      contents: read
+      packages: read
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.5
+    with:
+      chart_path: libChart
+      kubernetes_version: '1.30.0'
+      run_syntax: true
+      run_schema: false
+      run_metadata: true
+      run_tests: false
+      run_policy: false
+      run_version_check: true
+      post_pr_comment: false
+    secrets:
+      gh_app_id: ${{ secrets.gh_app_id }}
+      gh_app_private_key: ${{ secrets.gh_app_private_key }}
+
+  validate-test:
+    if: inputs.chart_kind == 'lib' && needs.detect-changes.outputs.run_validate == 'true'
+    needs:
+      - detect-changes
+      - validate-lib
+    permissions:
+      contents: read
+      packages: read
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.5
+    with:
+      chart_path: test-chart
+      kubernetes_version: '1.30.0'
+      scenarios_dir: tests/scenarios
+      snapshots_dir: tests/snapshots
+      run_syntax: true
+      run_schema: true
+      run_metadata: false
+      run_tests: true
+      run_policy: true
+      target_branch: main
+      run_version_check: false
+      post_pr_comment: false
+    secrets:
+      gh_app_id: ${{ secrets.gh_app_id }}
+      gh_app_private_key: ${{ secrets.gh_app_private_key }}
+
+  renovate-config-validation:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run_renovate_validation == 'true'
+    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.5
+
+  scaffold-drift-check:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run_scaffold_drift == 'true'
+    uses: orhayoun-eevee/build-workflow/.github/workflows/scaffold-drift-check.yaml@v0.1.5
+    with:
+      repo_name: ${{ inputs.repo_name }}
+    secrets:
+      gh_app_id: ${{ secrets.gh_app_id }}
+      gh_app_private_key: ${{ secrets.gh_app_private_key }}
+
+  codeql:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run_codeql == 'true'
+    uses: orhayoun-eevee/build-workflow/.github/workflows/codeql.yaml@v0.1.5
+
+  required-checks:
+    name: required-checks
+    if: always()
+    runs-on: ubuntu-latest
+    needs:
+      - detect-changes
+      - dependency-review
+      - validate-app
+      - validate-lib
+      - validate-test
+      - renovate-config-validation
+      - scaffold-drift-check
+      - codeql
+    steps:
+      - name: Validate required job results
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          declare -A job_results=(
+            ["dependency-review"]="${{ needs.dependency-review.result }}"
+            ["validate-app"]="${{ needs.validate-app.result }}"
+            ["validate-lib"]="${{ needs.validate-lib.result }}"
+            ["validate-test"]="${{ needs.validate-test.result }}"
+            ["renovate-config-validation"]="${{ needs.renovate-config-validation.result }}"
+            ["scaffold-drift-check"]="${{ needs.scaffold-drift-check.result }}"
+            ["codeql"]="${{ needs.codeql.result }}"
+          )
+
+          failed=0
+          for job in "${!job_results[@]}"; do
+            result="${job_results[$job]}"
+            echo "${job}: ${result}"
+            if [[ "${result}" == "failure" || "${result}" == "cancelled" ]]; then
+              failed=1
+            fi
+          done
+
+          if [[ "${failed}" -ne 0 ]]; then
+            echo "One or more required PR checks failed."
+            exit 1
+          fi
+
+          echo "All required PR checks passed."

@@ -61,6 +61,11 @@ on:
         required: false
         type: string
         default: ''
+      post_pr_comment:
+        description: 'Post a summary comment on pull requests'
+        required: false
+        type: boolean
+        default: false
     secrets:
       gh_app_id:
         description: 'GitHub App ID for minting installation token'
@@ -71,8 +76,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
-  pull-requests: write
 
 concurrency:
   group: helm-validate-${{ github.workflow }}-${{ github.ref }}-${{ inputs.chart_path }}
@@ -82,7 +85,13 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/orhayoun-eevee/helm-validate:v0.1.4
+      image: ghcr.io/orhayoun-eevee/helm-validate:v0.1.5
+    outputs:
+      unit_test_files: ${{ steps.quality-metrics.outputs.unit_test_files }}
+      unit_test_assertions: ${{ steps.quality-metrics.outputs.unit_test_assertions }}
+      scenario_count: ${{ steps.quality-metrics.outputs.scenario_count }}
+      fail_case_count: ${{ steps.quality-metrics.outputs.fail_case_count }}
+      checkov_skip_count: ${{ steps.quality-metrics.outputs.checkov_skip_count }}
 
     steps:
       - name: Checkout repository
@@ -187,7 +196,7 @@ jobs:
             echo "| Checkov skip rules | ${checkov_skip_count} |"
           } >> "${GITHUB_STEP_SUMMARY}"
 
-          cat > quality-metrics.json <<EOF
+          cat > quality-metrics.json <<JSON
           {
             "chart_path": "${CHART_PATH}",
             "unit_test_files": ${unit_test_files},
@@ -196,7 +205,7 @@ jobs:
             "fail_case_count": ${fail_case_count},
             "checkov_skip_count": ${checkov_skip_count}
           }
-          EOF
+          JSON
 
       - name: Upload validation metrics artifact
         if: always() && hashFiles('quality-metrics.json') != ''
@@ -206,14 +215,22 @@ jobs:
           path: quality-metrics.json
           retention-days: 14
 
+  post-pr-comment:
+    if: always() && inputs.post_pr_comment && github.event_name == 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
       - name: Post PR Comment
-        if: always() && github.event_name == 'pull_request'
         continue-on-error: true
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           github-token: ${{ github.token }}
           script: |
-            const conclusion = '${{ job.status }}';
+            const conclusion = '${{ needs.validate.result }}';
             const icon = conclusion === 'success' ? '✅' : '❌';
             const body = [
               `## ${icon} Helm Validation ${conclusion === 'success' ? 'Passed' : 'Failed'}`,
@@ -223,11 +240,11 @@ jobs:
               `| Chart | \`${{ inputs.chart_path }}\` |`,
               `| K8s version | \`${{ inputs.kubernetes_version }}\` |`,
               `| Version check | \`${{ inputs.run_version_check }}\` |`,
-              `| Unit test files | \`${{ steps.quality-metrics.outputs.unit_test_files }}\` |`,
-              `| Unit test assertions | \`${{ steps.quality-metrics.outputs.unit_test_assertions }}\` |`,
-              `| Scenarios | \`${{ steps.quality-metrics.outputs.scenario_count }}\` |`,
-              `| Schema fail-cases | \`${{ steps.quality-metrics.outputs.fail_case_count }}\` |`,
-              `| Checkov skip rules | \`${{ steps.quality-metrics.outputs.checkov_skip_count }}\` |`,
+              `| Unit test files | \`${{ needs.validate.outputs.unit_test_files }}\` |`,
+              `| Unit test assertions | \`${{ needs.validate.outputs.unit_test_assertions }}\` |`,
+              `| Scenarios | \`${{ needs.validate.outputs.scenario_count }}\` |`,
+              `| Schema fail-cases | \`${{ needs.validate.outputs.fail_case_count }}\` |`,
+              `| Checkov skip rules | \`${{ needs.validate.outputs.checkov_skip_count }}\` |`,
               '',
               `See [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for detailed logs.`
             ].join('\n');
@@ -236,5 +253,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: body
+              body
             });

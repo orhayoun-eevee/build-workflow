@@ -16,3 +16,4 @@ jobs:
     with:
       chart_path: libChart
       release_environment: production
+      enable_signing: true

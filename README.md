@@ -24,6 +24,7 @@ See `docs/workflow-trigger-matrix.md` for a clear map of:
 build-workflow/
 ├── .github/workflows/
 │   ├── helm-validate.yaml     # Reusable: 5-layer validation pipeline
+│   ├── pr-required-checks-chart.yaml # Reusable: centralized chart PR gate orchestration
 │   ├── release-chart.yaml     # Reusable: publish chart to OCI registry
 │   ├── dependency-review.yaml # Reusable: dependency risk review for PRs
 │   ├── codeql.yaml            # Reusable: code scanning for CI automation content
@@ -280,12 +281,13 @@ make validate         # Run all 5 layers
 | `target_branch` | string | No | `main` | Base branch for version comparison |
 | `run_version_check` | boolean | No | `true` | Run version strictly-greater check |
 | `checkov_extra_args` | string | No | `""` | Extra args for Checkov |
+| `post_pr_comment` | boolean | No | `false` | Post a PR summary comment |
 
 **How it works:**
 1. Checks out the consumer repo and `build-workflow` at the same tag/ref as the called reusable workflow
 2. Runs inside the version-matched `ghcr.io/orhayoun-eevee/helm-validate:vX.Y.Z` container pinned in the reusable workflow
 3. Executes `validate-orchestrator.sh` which runs all 5 layers sequentially
-4. Posts a summary comment on the PR (pass/fail with settings table)
+4. Optionally posts a summary comment on the PR when `post_pr_comment: true`
 
 **Version ownership model:**
 1. Consumer repos only pin reusable workflow tags (`@vX.Y.Z`).
@@ -305,12 +307,14 @@ make validate         # Run all 5 layers
 |-------|------|----------|---------|-------------|
 | `chart_path` | string | No | `.` | Path to the Helm chart directory |
 | `release_environment` | string | No | `production` | GitHub environment name used for release approvals/policies |
+| `enable_signing` | boolean | No | `true` | Enable keyless OCI signing/attestation |
 
 **How it works:**
 1. Verifies `Chart.yaml` version matches the git tag
 2. Runs `helm dependency build`
 3. Runs `helm package .`
 4. Pushes to `oci://ghcr.io/<owner>/<chart-name>:<version>`
+5. Signs and attests the OCI artifact when `enable_signing: true`
 
 **Example (consumer repo):**
 
