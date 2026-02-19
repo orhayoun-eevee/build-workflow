@@ -18,6 +18,10 @@ permissions:
   contents: read
   security-events: write
 
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   codeql:
     uses: orhayoun-eevee/build-workflow/.github/workflows/codeql.yaml@__BUILD_WORKFLOW_REF__

@@ -1,10 +1,14 @@
-name: Dependency Review (Manual)
+name: Dependency Review (Manual / Break Glass)
 
 on:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: dependency-review-manual-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   dependency-review:
