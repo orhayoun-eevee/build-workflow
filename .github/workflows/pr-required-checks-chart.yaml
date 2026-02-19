@@ -76,7 +76,6 @@ jobs:
 
   dependency-review:
     if: github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name == github.repository)
-    timeout-minutes: 10
     permissions:
       contents: read
     uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.12
@@ -84,7 +83,6 @@ jobs:
   validate-app:
     if: inputs.chart_kind == 'app' && needs.detect-changes.outputs.run_validate == 'true'
     needs: detect-changes
-    timeout-minutes: 45
     permissions:
       contents: read
       packages: read
@@ -108,7 +106,6 @@ jobs:
   validate-lib:
     if: inputs.chart_kind == 'lib' && needs.detect-changes.outputs.run_validate == 'true'
     needs: detect-changes
-    timeout-minutes: 45
     permissions:
       contents: read
       packages: read
@@ -131,7 +128,6 @@ jobs:
     needs:
       - detect-changes
       - validate-lib
-    timeout-minutes: 45
     permissions:
       contents: read
       packages: read
@@ -155,7 +151,6 @@ jobs:
   renovate-config-validation:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_renovate_validation == 'true'
-    timeout-minutes: 10
     permissions:
       contents: read
     uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.12
@@ -163,7 +158,6 @@ jobs:
   codeql:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_codeql == 'true'
-    timeout-minutes: 30
     permissions:
       actions: read
       contents: read

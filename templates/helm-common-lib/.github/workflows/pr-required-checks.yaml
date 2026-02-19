@@ -9,13 +9,6 @@ on:
       - ready_for_review
     branches:
       - main
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - 'AGENTS.md'
-      - '.gitignore'
-      - '.editorconfig'
-      - 'LICENSE'
   merge_group:
     types:
       - checks_requested
