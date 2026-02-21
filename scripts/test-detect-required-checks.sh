@@ -69,10 +69,9 @@ EOF
 
 	out="${tmpdir}/chart-app-pr.out"
 	: >"${out}"
-	MODE=chart EVENT_NAME=pull_request BASE_SHA="${head_sha}" HEAD_SHA="${head_sha_chart}" CHART_KIND=app ENABLE_CODEQL=true GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
+	MODE=chart EVENT_NAME=pull_request BASE_SHA="${head_sha}" HEAD_SHA="${head_sha_chart}" CHART_KIND=app GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
 	assert_contains "${out}" "run_validate=true"
 	assert_contains "${out}" "run_renovate_validation=false"
-	assert_contains "${out}" "run_codeql=false"
 
 	echo "{}" >.github/workflows/renovate-config.yaml
 	git add .github/workflows/renovate-config.yaml
@@ -81,10 +80,9 @@ EOF
 
 	out="${tmpdir}/chart-renovate-pr.out"
 	: >"${out}"
-	MODE=chart EVENT_NAME=pull_request BASE_SHA="${head_sha_chart}" HEAD_SHA="${head_sha_renovate}" CHART_KIND=app ENABLE_CODEQL=true GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
+	MODE=chart EVENT_NAME=pull_request BASE_SHA="${head_sha_chart}" HEAD_SHA="${head_sha_renovate}" CHART_KIND=app GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
 	assert_contains "${out}" "run_validate=false"
 	assert_contains "${out}" "run_renovate_validation=true"
-	assert_contains "${out}" "run_codeql=true"
 
 	mkdir -p libChart
 	echo "name: lib" >libChart/Chart.yaml
@@ -94,17 +92,15 @@ EOF
 
 	out="${tmpdir}/chart-lib-pr.out"
 	: >"${out}"
-	MODE=chart EVENT_NAME=pull_request BASE_SHA="${head_sha_renovate}" HEAD_SHA="${head_sha_lib}" CHART_KIND=lib ENABLE_CODEQL=true GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
+	MODE=chart EVENT_NAME=pull_request BASE_SHA="${head_sha_renovate}" HEAD_SHA="${head_sha_lib}" CHART_KIND=lib GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
 	assert_contains "${out}" "run_validate=true"
 	assert_contains "${out}" "run_renovate_validation=false"
-	assert_contains "${out}" "run_codeql=false"
 
 	out="${tmpdir}/chart-merge-group.out"
 	: >"${out}"
-	MODE=chart EVENT_NAME=merge_group CHART_KIND=app ENABLE_CODEQL=true GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
+	MODE=chart EVENT_NAME=merge_group CHART_KIND=app GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
 	assert_contains "${out}" "run_validate=true"
 	assert_contains "${out}" "run_renovate_validation=true"
-	assert_contains "${out}" "run_codeql=true"
 )
 
 echo "detect-required-checks tests passed"

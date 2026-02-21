@@ -31,14 +31,11 @@ jobs:
   ci-required:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     permissions:
-      actions: read
       contents: read
       packages: read
-      security-events: write
     uses: orhayoun-eevee/build-workflow/.github/workflows/pr-required-checks-chart.yaml@__BUILD_WORKFLOW_REF__
     with:
       chart_kind: app
-      enable_codeql: true
     secrets:
       gh_app_id: ${{ secrets.GHCR_AUTO_APP_ID }}
       gh_app_private_key: ${{ secrets.GHCR_AUTO_PKEY }}
