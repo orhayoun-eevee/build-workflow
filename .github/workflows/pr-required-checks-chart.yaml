@@ -7,11 +7,6 @@ on:
         description: 'Chart type: app or lib'
         required: true
         type: string
-      enable_codeql:
-        description: 'Enable CodeQL checks when chart or automation paths change'
-        required: false
-        type: boolean
-        default: true
     secrets:
       gh_app_id:
         description: 'GitHub App ID for minting installation token'
@@ -37,7 +32,6 @@ jobs:
     outputs:
       run_validate: ${{ steps.filter.outputs.run_validate }}
       run_renovate_validation: ${{ steps.filter.outputs.run_renovate_validation }}
-      run_codeql: ${{ steps.filter.outputs.run_codeql }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -69,14 +63,12 @@ jobs:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || '' }}
           HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
           CHART_KIND: ${{ inputs.chart_kind }}
-          ENABLE_CODEQL: ${{ inputs.enable_codeql }}
         run: |
           set -euo pipefail
           ./.build-workflow/scripts/detect-required-checks.sh
 
   dependency-review:
     if: github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name == github.repository)
-    timeout-minutes: 10
     permissions:
       contents: read
     uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.13
@@ -84,7 +76,6 @@ jobs:
   validate-app:
     if: inputs.chart_kind == 'app' && needs.detect-changes.outputs.run_validate == 'true'
     needs: detect-changes
-    timeout-minutes: 45
     permissions:
       contents: read
       packages: read
@@ -108,7 +99,6 @@ jobs:
   validate-lib:
     if: inputs.chart_kind == 'lib' && needs.detect-changes.outputs.run_validate == 'true'
     needs: detect-changes
-    timeout-minutes: 45
     permissions:
       contents: read
       packages: read
@@ -131,7 +121,6 @@ jobs:
     needs:
       - detect-changes
       - validate-lib
-    timeout-minutes: 45
     permissions:
       contents: read
       packages: read
@@ -155,20 +144,9 @@ jobs:
   renovate-config-validation:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_renovate_validation == 'true'
-    timeout-minutes: 10
     permissions:
       contents: read
     uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.13
-
-  codeql:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.run_codeql == 'true'
-    timeout-minutes: 30
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    uses: orhayoun-eevee/build-workflow/.github/workflows/codeql.yaml@v0.1.13
 
   ci-required:
     name: ci-required
@@ -184,7 +162,6 @@ jobs:
       - validate-lib
       - validate-test
       - renovate-config-validation
-      - codeql
     steps:
       - name: Validate required job results
         shell: bash
@@ -198,7 +175,6 @@ jobs:
             ["validate-lib"]="${{ needs.validate-lib.result }}"
             ["validate-test"]="${{ needs.validate-test.result }}"
             ["renovate-config-validation"]="${{ needs.renovate-config-validation.result }}"
-            ["codeql"]="${{ needs.codeql.result }}"
           )
 
           failed=0

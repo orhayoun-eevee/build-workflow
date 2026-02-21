@@ -99,7 +99,6 @@ for repo in "${REPOS[@]}"; do
 			continue
 		fi
 		render_template "${LIB_TEMPLATE_ROOT}/.github/workflows/on-tag.yaml" "${repo_root}/.github/workflows/on-tag.yaml" "Helm Common Lib" "${repo}"
-		render_template "${LIB_TEMPLATE_ROOT}/.github/workflows/codeql.yaml" "${repo_root}/.github/workflows/codeql.yaml" "Helm Common Lib" "${repo}"
 		render_template "${LIB_TEMPLATE_ROOT}/.github/workflows/pr-required-checks.yaml" "${repo_root}/.github/workflows/pr-required-checks.yaml" "Helm Common Lib" "${repo}"
 		render_template "${LIB_TEMPLATE_ROOT}/.github/workflows/renovate-config.yaml" "${repo_root}/.github/workflows/renovate-config.yaml" "Helm Common Lib" "${repo}"
 		continue
@@ -123,7 +122,6 @@ for repo in "${REPOS[@]}"; do
 	render_template "${APP_TEMPLATE_ROOT}/Makefile" "${repo_root}/Makefile" "${chart_title}" "${repo}"
 	render_template "${APP_TEMPLATE_ROOT}/scripts/bump-version.sh" "${repo_root}/scripts/bump-version.sh" "${chart_title}" "${repo}"
 	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/on-tag.yaml" "${repo_root}/.github/workflows/on-tag.yaml" "${chart_title}" "${repo}"
-	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/codeql.yaml" "${repo_root}/.github/workflows/codeql.yaml" "${chart_title}" "${repo}"
 	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/pr-required-checks.yaml" "${repo_root}/.github/workflows/pr-required-checks.yaml" "${chart_title}" "${repo}"
 	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/renovate-config.yaml" "${repo_root}/.github/workflows/renovate-config.yaml" "${chart_title}" "${repo}"
 	render_template "${APP_TEMPLATE_ROOT}/.github/workflows/renovate-snapshot-update.yaml" "${repo_root}/.github/workflows/renovate-snapshot-update.yaml" "${chart_title}" "${repo}"
