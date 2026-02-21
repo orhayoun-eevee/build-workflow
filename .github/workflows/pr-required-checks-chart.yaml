@@ -79,7 +79,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.12
+    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.13
 
   validate-app:
     if: inputs.chart_kind == 'app' && needs.detect-changes.outputs.run_validate == 'true'
@@ -88,7 +88,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.12
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.13
     with:
       chart_path: .
       kubernetes_version: '1.30.0'
@@ -112,7 +112,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.12
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.13
     with:
       chart_path: libChart
       kubernetes_version: '1.30.0'
@@ -135,7 +135,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.12
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.13
     with:
       chart_path: test-chart
       kubernetes_version: '1.30.0'
@@ -158,7 +158,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.12
+    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.13
 
   codeql:
     needs: detect-changes
@@ -168,7 +168,7 @@ jobs:
       actions: read
       contents: read
       security-events: write
-    uses: orhayoun-eevee/build-workflow/.github/workflows/codeql.yaml@v0.1.12
+    uses: orhayoun-eevee/build-workflow/.github/workflows/codeql.yaml@v0.1.13
 
   ci-required:
     name: ci-required
