@@ -51,7 +51,7 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: v0.1.15
+          ref: v0.1.16
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Detect changed paths
