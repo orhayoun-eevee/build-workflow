@@ -25,6 +25,7 @@ if [[ "${force_all}" == "true" ]]; then
 			echo "run_docker_smoke=true"
 			echo "run_renovate_validation=true"
 			echo "run_codeql=true"
+			echo "run_dependency_review=true"
 		} >>"${GITHUB_OUTPUT}"
 		exit 0
 	fi
@@ -48,6 +49,7 @@ if [[ "${MODE}" == "build" ]]; then
 	run_docker_smoke=false
 	run_renovate_validation=false
 	run_codeql=false
+	run_dependency_review=false
 
 	if grep -Eq '^(scripts/|\.github/workflows/|docker/Dockerfile)' <<<"${changed_files}"; then
 		run_guardrails=true
@@ -65,11 +67,16 @@ if [[ "${MODE}" == "build" ]]; then
 		run_codeql=true
 	fi
 
+	if grep -Eq '^(scripts/|\.github/workflows/|docker/|renovate\.json|renovate\.json5|\.github/renovate\.json|\.github/renovate\.json5|Makefile)' <<<"${changed_files}"; then
+		run_dependency_review=true
+	fi
+
 	{
 		echo "run_guardrails=${run_guardrails}"
 		echo "run_docker_smoke=${run_docker_smoke}"
 		echo "run_renovate_validation=${run_renovate_validation}"
 		echo "run_codeql=${run_codeql}"
+		echo "run_dependency_review=${run_dependency_review}"
 	} >>"${GITHUB_OUTPUT}"
 	exit 0
 fi

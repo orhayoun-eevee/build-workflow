@@ -53,6 +53,7 @@ EOF
 	assert_contains "${out}" "run_docker_smoke=false"
 	assert_contains "${out}" "run_renovate_validation=false"
 	assert_contains "${out}" "run_codeql=true"
+	assert_contains "${out}" "run_dependency_review=true"
 
 	out="${tmpdir}/build-merge-group.out"
 	: >"${out}"
@@ -61,6 +62,23 @@ EOF
 	assert_contains "${out}" "run_docker_smoke=true"
 	assert_contains "${out}" "run_renovate_validation=true"
 	assert_contains "${out}" "run_codeql=true"
+	assert_contains "${out}" "run_dependency_review=true"
+
+	cat >README.md <<'EOF'
+# docs only
+EOF
+	git add README.md
+	git commit -q -m "docs change"
+	head_sha_docs="$(git rev-parse HEAD)"
+
+	out="${tmpdir}/build-docs-pr.out"
+	: >"${out}"
+	MODE=build EVENT_NAME=pull_request BASE_SHA="${head_sha}" HEAD_SHA="${head_sha_docs}" GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
+	assert_contains "${out}" "run_guardrails=false"
+	assert_contains "${out}" "run_docker_smoke=false"
+	assert_contains "${out}" "run_renovate_validation=false"
+	assert_contains "${out}" "run_codeql=false"
+	assert_contains "${out}" "run_dependency_review=false"
 
 	echo "# chart change" >Chart.yaml
 	git add Chart.yaml

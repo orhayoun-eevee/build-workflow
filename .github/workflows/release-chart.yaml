@@ -82,6 +82,15 @@ jobs:
           echo "path=${CHART_PATH}" >> "${GITHUB_OUTPUT}"
           echo "Using chart path: ${CHART_PATH}"
 
+      - name: Verify workflow runs from a tag ref
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" != refs/tags/* ]]; then
+            echo "ERROR: release-chart must run from a tag ref. Got: ${GITHUB_REF}"
+            echo "Call this workflow from a tag-triggered workflow (e.g. refs/tags/v1.2.3)."
+            exit 1
+          fi
+
       - name: Verify Chart.yaml version matches git tag
         working-directory: ${{ steps.chart_path.outputs.path }}
         run: |
