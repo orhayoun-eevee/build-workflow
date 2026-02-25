@@ -214,7 +214,7 @@ jobs:
           cosign attest \
             --yes \
             --predicate provenance.json \
-            --type slsaprovenance \
+            --type https://github.com/orhayoun-eevee/build-workflow/helm-chart-provenance/v1 \
             "${{ steps.publish.outputs.oci_ref }}"
 
       - name: Summarize release
