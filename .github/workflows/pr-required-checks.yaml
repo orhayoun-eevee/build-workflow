@@ -39,6 +39,7 @@ jobs:
       run_docker_smoke: ${{ steps.filter.outputs.run_docker_smoke }}
       run_renovate_validation: ${{ steps.filter.outputs.run_renovate_validation }}
       run_codeql: ${{ steps.filter.outputs.run_codeql }}
+      run_dependency_review: ${{ steps.filter.outputs.run_dependency_review }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -78,6 +79,13 @@ jobs:
       - name: Build helm-validate image (smoke test)
         run: docker build -t helm-validate:pr-smoke ./docker
 
+  dependency-review:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.run_dependency_review == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/dependency-review.yaml
+
   renovate-config-validation:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_renovate_validation == 'true'
@@ -104,6 +112,7 @@ jobs:
       - detect-changes
       - quality-guardrails
       - docker-build-smoke
+      - dependency-review
       - renovate-config-validation
       - codeql
     if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
@@ -117,6 +126,7 @@ jobs:
             ["detect-changes"]="${{ needs.detect-changes.result }}"
             ["quality-guardrails"]="${{ needs.quality-guardrails.result }}"
             ["docker-build-smoke"]="${{ needs.docker-build-smoke.result }}"
+            ["dependency-review"]="${{ needs.dependency-review.result }}"
             ["renovate-config-validation"]="${{ needs.renovate-config-validation.result }}"
             ["codeql"]="${{ needs.codeql.result }}"
           )

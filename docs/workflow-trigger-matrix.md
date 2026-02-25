@@ -1,62 +1,114 @@
-# Workflow Trigger Matrix
+# Build-Workflow Trigger Matrix
 
-This document defines exactly which workflow runs, when it runs, and what it is responsible for.
+Last updated: 2026-02-25
+Repository: `orhayoun-eevee/build-workflow`
 
-## build-workflow repository
+## Scope and terms
+- **PR** = `pull_request` events targeting `main`.
+- **Merge** = `push` to `main` (typically after PR merge).
+- **Tag** = `push` of tags matching `v*`.
+- **Reusable-only** = workflow has `on: workflow_call` and does not self-trigger from repo events.
+- For many PR jobs, forks are explicitly blocked by: `github.event.pull_request.head.repo.full_name == github.repository`.
 
-| Workflow | Trigger | Automatic | Purpose |
-|---|---|---|---|
-| `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main`, `merge_group` (`checks_requested`) | Yes | Single always-present required gate; conditionally runs guardrails/docker-smoke/renovate/codeql validation |
-| `.github/workflows/docker-build.yaml` | `push` tags `v*`, `workflow_dispatch` | Yes (tag), Manual (`workflow_dispatch`) | Build and push `ghcr.io/<owner>/helm-validate` |
-| `.github/workflows/helm-validate.yaml` | `workflow_call` only | Indirect | Reusable 5-layer Helm validation pipeline |
-| `.github/workflows/pr-required-checks-chart.yaml` | `workflow_call` only | Indirect | Reusable always-on required gate orchestration for chart repos |
-| `.github/workflows/release-chart.yaml` | `workflow_call` only | Indirect | Package and publish Helm chart to GHCR OCI |
-| `.github/workflows/dependency-review.yaml` | `pull_request` to `main`, `workflow_call` | Yes (PR), Indirect (`workflow_call`) | Dependency risk policy check for dependency updates |
-| `.github/workflows/codeql.yaml` | `pull_request`/`push` to `main` (`.github/workflows/**`, `scripts/**`), `schedule`, `workflow_call` | Yes (PR/push/schedule), Indirect (`workflow_call`) | Code scanning for workflow/script automation content |
-| `.github/workflows/renovate-config.yaml` | push to `main` changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
-| `.github/workflows/quality-guardrails.yaml` | `pull_request` to `main` for automation paths, `workflow_call` | Yes (PR), Indirect (`workflow_call`) | Lint/guardrail enforcement for workflows/scripts/toolchain pins |
-| `.github/workflows/renovate-snapshot-update.yaml` | `workflow_call` only | Indirect | Reusable Renovate-only snapshot refresh workflow |
-| `.github/workflows/detect-required-checks-tests.yaml` | `pull_request`/`push` to `main` for detect script and workflow changes | Yes | Validates required-check path detection logic |
+## Workflow-Level Trigger Matrix
 
-## App chart repositories (`radarr-helm`, `sonarr-helm`, `sabnzbd-helm`, `transmission-helm`)
+| Workflow | PR to `main` | Merge (`push` to `main`) | New tag (`v*`) | Manual (`workflow_dispatch`) | Reusable (`workflow_call`) |
+|---|---:|---:|---:|---:|---:|
+| `.github/workflows/pr-required-checks.yaml` | Yes (`opened/synchronize/reopened/ready_for_review`, with `paths-ignore`) | No | No | No | No |
+| `.github/workflows/quality-guardrails.yaml` | No (direct) | Yes (`paths` filtered) | No | No | Yes |
+| `.github/workflows/codeql.yaml` | No (direct) | Yes (`paths` filtered) | No | No | Yes |
+| `.github/workflows/dependency-review.yaml` | No (direct) | No | No | No | Yes |
+| `.github/workflows/detect-required-checks-tests.yaml` | Yes (`paths` filtered) | Yes (`paths` filtered) | No | No | No |
+| `.github/workflows/renovate-config.yaml` | No | Yes (`paths` filtered) | No | Yes | Yes |
+| `.github/workflows/docker-build.yaml` | No | No | Yes (`tags: v*`) | Yes | No |
+| `.github/workflows/helm-validate.yaml` | No (direct) | No (direct) | No (direct) | No | Yes |
+| `.github/workflows/release-chart.yaml` | No (direct) | No (direct) | No (direct) | No | Yes |
+| `.github/workflows/pr-required-checks-chart.yaml` | No (direct) | No (direct) | No (direct) | No | Yes |
+| `.github/workflows/renovate-snapshot-update.yaml` | No (direct) | No (direct) | No (direct) | No | Yes |
 
-| Workflow | Trigger | Automatic | Purpose |
-|---|---|---|---|
-| `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main`, `merge_group` (`checks_requested`) | Yes | Thin wrapper calling centralized `pr-required-checks-chart.yaml` reusable orchestrator |
-| `.github/workflows/on-tag.yaml` | `push` tags `v*` | Yes | Calls reusable `release-chart.yaml` |
-| `.github/workflows/renovate-config.yaml` | push to `main` changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
-| `.github/workflows/renovate-snapshot-update.yaml` | Renovate PR events + `values.yaml` changes | Yes | Regenerate and commit snapshot files for Renovate PRs |
-| `.github/workflows/codeql.yaml` | `push` to `main` (`.github/workflows/**`, `scripts/**`), `schedule`, `workflow_dispatch` | Yes | Calls centralized `build-workflow` CodeQL workflow |
+## Stage/Job Conditions By Workflow
 
-## helm-common-lib repository
+### 1) `pr-required-checks.yaml`
+Why it exists: single required status (`ci-required`) with path-aware fan-out.
 
-| Workflow | Trigger | Automatic | Purpose |
-|---|---|---|---|
-| `.github/workflows/pr-required-checks.yaml` | `pull_request` to `main`, `merge_group` (`checks_requested`) | Yes | Thin wrapper calling centralized `pr-required-checks-chart.yaml` reusable orchestrator |
-| `.github/workflows/on-tag.yaml` | `push` tags `v*` | Yes | Calls reusable `release-chart.yaml` for `libChart` |
-| `.github/workflows/renovate-config.yaml` | push to `main` changes to Renovate config paths, `workflow_dispatch` | Yes | Validate `renovate.json` |
-| `.github/workflows/codeql.yaml` | `push` to `main` (`.github/workflows/**`, `scripts/**`), `schedule`, `workflow_dispatch` | Yes | Calls centralized `build-workflow` CodeQL workflow |
+| Job | Runs when | Why |
+|---|---|---|
+| `detect-changes` | Workflow triggered and (not PR fork) | Computes booleans via `scripts/detect-required-checks.sh` to avoid unnecessary jobs. |
+| `quality-guardrails` | `run_guardrails == 'true'` | Runs only when scripts/workflows/Dockerfile-related files changed (or forced on non-PR context). |
+| `docker-build-smoke` | `run_docker_smoke == 'true'` | Smokes docker build only when docker/workflow pieces changed. |
+| `dependency-review` | `run_dependency_review == 'true'` | Runs dependency risk gate only for dependency-relevant changes (or forced on non-PR context). |
+| `renovate-config-validation` | `run_renovate_validation == 'true'` | Validates Renovate config only when Renovate files/workflow changed. |
+| `codeql` | `run_codeql == 'true'` | Limits CodeQL to workflow/script changes requiring actions security scan. |
+| `ci-required` | `always()` plus same-repo guard for PR | Aggregates job outcomes into one required check result. |
 
-## Docker Validation Image Lifecycle
+Notes:
+- Also runs on `merge_group` (`checks_requested`) for merge queue safety.
+- `paths-ignore` suppresses PR runs for docs-only/meta-only changes.
+- PR fan-out is single-entry via this workflow; reusable child workflows do not self-trigger on PR.
 
-- Image name: `ghcr.io/orhayoun-eevee/helm-validate`
-- version tags (`vX.Y.Z`):
-  - published on tag pushes in `build-workflow`
-  - consumed by reusable workflows using the same `vX.Y.Z` release
-- manual rebuild:
-  - available via `workflow_dispatch` in `docker-build.yaml`
+### 2) `quality-guardrails.yaml`
+Why it exists: hard policy checks for workflow hygiene and supply-chain pinning.
 
-## Operational Notes
+| Job | Runs when | Why |
+|---|---|---|
+| `lint-automation` | Trigger fired and (not PR fork) | Enforces shell/workflow/Dockerfile linting and guardrails (permissions, pinned actions, ref policies, etc.). |
 
-- Chart repos pin reusable workflows to a specific `build-workflow` release tag (`vX.Y.Z`) for deterministic CI.
-- Internal image/ref versions are owned by `build-workflow`; consumer repos should only bump reusable workflow tags.
-- Consumers do not override `docker_image` or `build_workflow_ref`; runtime/tooling is tied to the called `build-workflow` tag.
-- If reusable workflow behavior must change globally, update `build-workflow` first, then bump pinned tags in all chart repos.
-- Snapshot-update workflows are intentionally scoped to Renovate PRs touching `values.yaml` to avoid self-mutating non-Renovate PRs.
-- Branch protection for `main` should require only the `ci-required` status from `.github/workflows/pr-required-checks.yaml` in each repo.
-- If merge queue is enabled, ensure `.github/workflows/pr-required-checks.yaml` is triggered for `merge_group` and keep only its `ci-required` status required.
-- Recommended required status contexts:
-  - `PR Required Checks / ci-required / ci-required (pull_request)`
-  - `PR Required Checks / ci-required / ci-required (merge_group)`
-- Do not mark path-filtered workflows as required checks; skipped path-filtered checks can block merges as pending.
-- `release-chart.yaml` supports keyless signing/attestation (`enable_signing: true`) for published OCI chart artifacts.
+### 3) `codeql.yaml`
+Why it exists: CodeQL analysis for Actions code/scripts surface.
+
+| Job | Runs when | Why |
+|---|---|---|
+| `analyze` | Trigger fired and (not PR fork) | Security scanning for workflow/script changes and weekly scheduled run. |
+
+### 4) `dependency-review.yaml`
+Why it exists: dependency risk gate on PRs.
+
+| Job | Runs when | Why |
+|---|---|---|
+| `dependency-review` | Trigger fired via `workflow_call` | Invoked by orchestrator to keep PR check surface deterministic and avoid duplicate runs. |
+
+### 5) `detect-required-checks-tests.yaml`
+Why it exists: regression tests for path-detection logic.
+
+| Job | Runs when | Why |
+|---|---|---|
+| `test-detect-required-checks` | Trigger fired and (not PR fork) | Validates `detect-required-checks.sh` behavior whenever detection logic/workflow wiring changes. |
+
+### 6) `renovate-config.yaml`
+Why it exists: validate Renovate configuration deterministically.
+
+| Job | Runs when | Why |
+|---|---|---|
+| `validate` | Push to `main` with Renovate-path changes, or manual dispatch, or workflow_call | Ensures Renovate config remains valid/strict without spending CI on unrelated changes. |
+
+### 7) `docker-build.yaml`
+Why it exists: publish `helm-validate` tool image.
+
+| Job | Runs when | Why |
+|---|---|---|
+| `build-and-push` | Tag push `v*` or manual dispatch | Release image only on explicit release signal (tag) or intentional manual run. |
+
+### 8) Reusable-only workflows
+
+| Workflow | Internal jobs | Effective run condition |
+|---|---|---|
+| `helm-validate.yaml` | `validate` | Only when called by another workflow/repo. |
+| `release-chart.yaml` | `release` | Only when called; expects tag context in caller for version/tag check. |
+| `pr-required-checks-chart.yaml` | `detect-changes`, `dependency-review`, `validate-*`, `renovate-config-validation`, `ci-required` | Only when chart repos call it; executes chart-specific required-check orchestration. |
+| `renovate-snapshot-update.yaml` | `update-snapshots` | Only when called in PR context and actor+PR author are `renovate[bot]` from same repo. |
+
+## PR vs Merge vs Tag: Practical Summary
+
+| Scenario | What should run in `build-workflow` repo |
+|---|---|
+| Open/update PR to `main` touching workflows/scripts/docker | `pr-required-checks` only as PR entrypoint (with selective child jobs: guardrails/docker-smoke/dependency-review/renovate/codeql), plus `detect-required-checks-tests` if relevant files changed. |
+| Merge PR to `main` | `quality-guardrails`, `codeql`, `detect-required-checks-tests`, `renovate-config` only if each workflow's `push.paths` match changed files. |
+| Push tag like `v0.1.20` | `docker-build` only (unless manually dispatching others). |
+
+## Best-Practice Notes For Codex Context
+- Keep required PR gating centralized through `pr-required-checks.yaml` + `ci-required` aggregator.
+- Keep PR execution single-entry via wrapper orchestration; avoid duplicate direct PR triggers in reusable workflows.
+- Keep path-based short-circuiting in `detect-required-checks.sh`; update tests in `scripts/test-detect-required-checks.sh` when rules change.
+- Avoid duplicate concurrency group names between caller and reusable workflows (deadlock risk).
+- Reusable workflows should remain event-agnostic except for explicit guards needed for safety (e.g., Renovate bot checks).
+- For release operations, prefer tag-driven triggers in caller repos and let reusable workflows stay `workflow_call` only.
