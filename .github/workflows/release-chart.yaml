@@ -40,7 +40,7 @@ jobs:
       YQ_VERSION: v4.52.4
       YQ_SHA256: 0c4d965ea944b64b8fddaf7f27779ee3034e5693263786506ccd1c120f184e8c
       COSIGN_VERSION: v2.4.1
-      COSIGN_SHA256: 5dcfb458dbb3f6bc5ea4f8ef2317be1f0ed5f4f0f13f55813f76f0e4d6669fba
+      COSIGN_SHA256: 8b24b946dd5809c6bd93de08033bcf6bc0ed7d336b7785787c080f574b89249b
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
