@@ -18,9 +18,9 @@ lint-tools-check:
 	fi
 
 lint: lint-tools-check
-	@mapfile -t script_files < <(find scripts -type f -name '*.sh'); \
-	if [ "$${#script_files[@]}" -gt 0 ]; then \
-		shellcheck "$${script_files[@]}"; \
+	@script_files="$$(find scripts -type f -name '*.sh')"; \
+	if [ -n "$$script_files" ]; then \
+		shellcheck $$script_files; \
 	else \
 		echo "No shell scripts found under scripts/"; \
 	fi
