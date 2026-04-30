@@ -21,7 +21,7 @@ permissions:
   packages: read
 
 concurrency:
-  group: renovate-snapshot-update-${{ github.workflow }}-${{ github.ref }}
+  group: reusable-renovate-snapshot-update-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -51,13 +51,15 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: v0.1.21
+          ref: v0.1.22
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Build pinned validation image
         run: make docker-build BUILD_WORKFLOW=.build-workflow DOCKER_IMAGE=helm-validate:renovate
 
-      - name: Regenerate snapshots
+      - name: Regenerate render-only snapshots
+        # This workflow refreshes render artifacts only. Install-time smoke
+        # remains a separate validation gap until a ct install-class gate exists.
         run: make snapshot-update BUILD_WORKFLOW=.build-workflow DOCKER_IMAGE=helm-validate:renovate
 
       - name: Commit updated snapshots

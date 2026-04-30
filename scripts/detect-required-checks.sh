@@ -50,8 +50,9 @@ if [[ "${MODE}" == "build" ]]; then
 	run_renovate_validation=false
 	run_codeql=false
 	run_dependency_review=false
+	guardrail_paths_pattern='^(scripts/|\.github/workflows/|templates/|configs/|docker/Dockerfile)'
 
-	if grep -Eq '^(scripts/|\.github/workflows/|docker/Dockerfile)' <<<"${changed_files}"; then
+	if grep -Eq "${guardrail_paths_pattern}" <<<"${changed_files}"; then
 		run_guardrails=true
 	fi
 
