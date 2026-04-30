@@ -24,6 +24,7 @@ mkdir -p "${repo}"
 	git init -q
 	git config user.name "ci"
 	git config user.email "ci@example.com"
+	git config commit.gpgsign false
 	mkdir -p scripts .github/workflows templates
 	cat >scripts/a.sh <<'EOF'
 #!/usr/bin/env bash
@@ -75,6 +76,36 @@ EOF
 	: >"${out}"
 	MODE=build EVENT_NAME=pull_request BASE_SHA="${head_sha}" HEAD_SHA="${head_sha_docs}" GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
 	assert_contains "${out}" "run_guardrails=false"
+	assert_contains "${out}" "run_docker_smoke=false"
+	assert_contains "${out}" "run_renovate_validation=false"
+	assert_contains "${out}" "run_codeql=false"
+	assert_contains "${out}" "run_dependency_review=false"
+
+	mkdir -p templates/app-chart/.github/workflows
+	echo "name: template contract" >templates/app-chart/.github/workflows/pr-required-checks.yaml
+	git add templates/app-chart/.github/workflows/pr-required-checks.yaml
+	git commit -q -m "template workflow change"
+	head_sha_template="$(git rev-parse HEAD)"
+
+	out="${tmpdir}/build-templates-pr.out"
+	: >"${out}"
+	MODE=build EVENT_NAME=pull_request BASE_SHA="${head_sha_docs}" HEAD_SHA="${head_sha_template}" GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
+	assert_contains "${out}" "run_guardrails=true"
+	assert_contains "${out}" "run_docker_smoke=false"
+	assert_contains "${out}" "run_renovate_validation=false"
+	assert_contains "${out}" "run_codeql=false"
+	assert_contains "${out}" "run_dependency_review=false"
+
+	mkdir -p configs
+	echo "chart-dirs: []" >configs/ct-default.yaml
+	git add configs/ct-default.yaml
+	git commit -q -m "config change"
+	head_sha_config="$(git rev-parse HEAD)"
+
+	out="${tmpdir}/build-configs-pr.out"
+	: >"${out}"
+	MODE=build EVENT_NAME=pull_request BASE_SHA="${head_sha_template}" HEAD_SHA="${head_sha_config}" GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
+	assert_contains "${out}" "run_guardrails=true"
 	assert_contains "${out}" "run_docker_smoke=false"
 	assert_contains "${out}" "run_renovate_validation=false"
 	assert_contains "${out}" "run_codeql=false"
