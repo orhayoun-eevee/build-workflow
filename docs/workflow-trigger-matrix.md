@@ -1,6 +1,6 @@
 # Build-Workflow Trigger Matrix
 
-Last updated: 2026-02-25
+Last updated: 2026-04-30
 Repository: `orhayoun-eevee/build-workflow`
 
 ## Scope and terms
@@ -96,6 +96,18 @@ Why it exists: publish `helm-validate` tool image.
 | `release-chart.yaml` | `release` | Only when called; expects tag context in caller for version/tag check. |
 | `pr-required-checks-chart.yaml` | `detect-changes`, `dependency-review`, `validate-*`, `renovate-config-validation`, `ci-required` | Only when chart repos call it; executes chart-specific required-check orchestration. |
 | `renovate-snapshot-update.yaml` | `update-snapshots` | Only when called in PR context and actor+PR author are `renovate[bot]` from same repo. |
+
+## Consumer Caller Contract Notes
+
+### App-chart `renovate-snapshot-update.yaml` wrapper
+
+- Trigger: `pull_request` `opened`, `synchronize`, and `reopened` events in app-chart repos.
+- Render-input path filter: `Chart.yaml`, `Chart.lock`, `values.yaml`, `templates/**`, `charts/**`, and `tests/scenarios/**`.
+- Deliberate exclusion: `tests/snapshots/**` is excluded so the bot does not retrigger itself after committing refreshed snapshots.
+- Concurrency contract: the caller wrapper and reusable workflow use distinct group prefixes so the reusable run cannot cancel its caller.
+- Validation scope: snapshot refresh proves render drift only. It does not provide install-time smoke.
+- Explicit remaining gap: no `ct install`-class smoke gate exists as of 2026-04-30. Owner: `build-workflow` maintainer.
+- Manual gate until closed: release or rollout evidence must keep this install-smoke gap explicit and must not claim install confidence from `ct lint` or snapshot refresh alone.
 
 ## PR vs Merge vs Tag: Practical Summary
 

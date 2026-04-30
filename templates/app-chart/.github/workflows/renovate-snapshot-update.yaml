@@ -4,14 +4,21 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
+      # Keep the trigger on render inputs only. `tests/snapshots/**` stays out
+      # of scope so the bot does not retrigger itself after committing updates.
+      - "Chart.yaml"
+      - "Chart.lock"
       - "values.yaml"
+      - "templates/**"
+      - "charts/**"
+      - "tests/scenarios/**"
 
 permissions:
   contents: write
   packages: read
 
 concurrency:
-  group: renovate-snapshot-update-${{ github.workflow }}-${{ github.ref }}
+  group: caller-renovate-snapshot-update-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
