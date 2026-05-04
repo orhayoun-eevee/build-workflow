@@ -109,6 +109,7 @@ Why it exists: publish `helm-validate` tool image.
 - Concurrency contract: the caller wrapper and reusable workflow use distinct group prefixes so the reusable run cannot cancel its caller.
 - Validation scope: snapshot refresh proves render drift only. Install-time smoke is enforced separately by `pr-required-checks-chart.yaml` through `helm-install-smoke.yaml`.
 - Minimal scenario contract: `tests/scenarios/minimal.yaml` must remain installable on a plain kind cluster without extra CRDs or environment-specific controllers.
+- Namespace contract: install smoke forces `global.namespace` to the temporary smoke namespace so charts with explicit namespace rendering do not depend on repo-default namespaces.
 - Wrapper rollout contract: changing any consumer wrapper ref (`pr-required-checks`, `on-tag`, `renovate-config`, or `renovate-snapshot-update`) is treated as validation-relevant and re-runs chart CI in PRs.
 
 ## PR vs Merge vs Tag: Practical Summary
@@ -117,7 +118,7 @@ Why it exists: publish `helm-validate` tool image.
 |---|---|
 | Open/update PR to `main` touching workflows/scripts/docker | `pr-required-checks` only as PR entrypoint (with selective child jobs: guardrails/docker-smoke/dependency-review/renovate/codeql), plus `detect-required-checks-tests` if relevant files changed. |
 | Merge PR to `main` | `quality-guardrails`, `codeql`, `detect-required-checks-tests`, `renovate-config` only if each workflow's `push.paths` match changed files. |
-| Push tag like `v0.1.25` | `docker-build` only (unless manually dispatching others). |
+| Push tag like `v0.1.26` | `docker-build` only (unless manually dispatching others). |
 
 ## Best-Practice Notes For Codex Context
 - Keep required PR gating centralized through `pr-required-checks.yaml` + `ci-required` aggregator.
