@@ -130,8 +130,19 @@ EOF
 	out="${tmpdir}/chart-renovate-pr.out"
 	: >"${out}"
 	MODE=chart EVENT_NAME=pull_request BASE_SHA="${head_sha_chart}" HEAD_SHA="${head_sha_renovate}" CHART_KIND=app GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
-	assert_contains "${out}" "run_validate=false"
+	assert_contains "${out}" "run_validate=true"
 	assert_contains "${out}" "run_renovate_validation=true"
+
+	echo "{}" >.github/workflows/pr-required-checks.yaml
+	git add .github/workflows/pr-required-checks.yaml
+	git commit -q -m "required checks wrapper change"
+	head_sha_chart_wrapper="$(git rev-parse HEAD)"
+
+	out="${tmpdir}/chart-wrapper-pr.out"
+	: >"${out}"
+	MODE=chart EVENT_NAME=pull_request BASE_SHA="${head_sha_renovate}" HEAD_SHA="${head_sha_chart_wrapper}" CHART_KIND=app GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
+	assert_contains "${out}" "run_validate=true"
+	assert_contains "${out}" "run_renovate_validation=false"
 
 	mkdir -p libChart
 	echo "name: lib" >libChart/Chart.yaml
@@ -141,7 +152,7 @@ EOF
 
 	out="${tmpdir}/chart-lib-pr.out"
 	: >"${out}"
-	MODE=chart EVENT_NAME=pull_request BASE_SHA="${head_sha_renovate}" HEAD_SHA="${head_sha_lib}" CHART_KIND=lib GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
+	MODE=chart EVENT_NAME=pull_request BASE_SHA="${head_sha_chart_wrapper}" HEAD_SHA="${head_sha_lib}" CHART_KIND=lib GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
 	assert_contains "${out}" "run_validate=true"
 	assert_contains "${out}" "run_renovate_validation=false"
 

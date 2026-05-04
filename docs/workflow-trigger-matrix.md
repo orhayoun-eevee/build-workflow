@@ -109,6 +109,7 @@ Why it exists: publish `helm-validate` tool image.
 - Concurrency contract: the caller wrapper and reusable workflow use distinct group prefixes so the reusable run cannot cancel its caller.
 - Validation scope: snapshot refresh proves render drift only. Install-time smoke is enforced separately by `pr-required-checks-chart.yaml` through `helm-install-smoke.yaml`.
 - Minimal scenario contract: `tests/scenarios/minimal.yaml` must remain installable on a plain kind cluster without extra CRDs or environment-specific controllers.
+- Wrapper rollout contract: changing any consumer wrapper ref (`pr-required-checks`, `on-tag`, `renovate-config`, or `renovate-snapshot-update`) is treated as validation-relevant and re-runs chart CI in PRs.
 
 ## PR vs Merge vs Tag: Practical Summary
 
