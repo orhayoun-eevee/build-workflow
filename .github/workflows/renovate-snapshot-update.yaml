@@ -51,7 +51,7 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: v0.1.22
+          ref: v0.1.23
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Build pinned validation image
@@ -59,7 +59,7 @@ jobs:
 
       - name: Regenerate render-only snapshots
         # This workflow refreshes render artifacts only. Install-time smoke
-        # remains a separate validation gap until a ct install-class gate exists.
+        # is enforced separately by the shared PR required-check gate.
         run: make snapshot-update BUILD_WORKFLOW=.build-workflow DOCKER_IMAGE=helm-validate:renovate
 
       - name: Commit updated snapshots
