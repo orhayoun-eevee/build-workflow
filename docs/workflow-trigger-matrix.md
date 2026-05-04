@@ -87,7 +87,7 @@ Why it exists: publish `helm-validate` tool image.
 
 | Job | Runs when | Why |
 |---|---|---|
-| `build-and-push` | Tag push `v*` or manual dispatch | Release image only on explicit release signal (tag) or intentional manual run. |
+| `build-and-push` | Tag push `v*` or manual dispatch against an existing semver tag ref | Release image only on explicit release signal (tag) or intentional manual run on a real release ref. |
 
 ### 8) Reusable-only workflows
 
