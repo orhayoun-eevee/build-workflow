@@ -31,6 +31,7 @@ info "Installing ${CHART_PATH} with ${VALUES_FILE}"
 helm install "${SMOKE_RELEASE_NAME}" "${CHART_PATH}" \
 	--namespace "${SMOKE_NAMESPACE}" \
 	--create-namespace \
+	--set-string "global.namespace=${SMOKE_NAMESPACE}" \
 	--values "${VALUES_FILE}"
 
 info "Captured installed resources"
