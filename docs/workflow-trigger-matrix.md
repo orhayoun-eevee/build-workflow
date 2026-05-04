@@ -1,6 +1,6 @@
 # Build-Workflow Trigger Matrix
 
-Last updated: 2026-04-30
+Last updated: 2026-05-04
 Repository: `orhayoun-eevee/build-workflow`
 
 ## Scope and terms
@@ -22,6 +22,7 @@ Repository: `orhayoun-eevee/build-workflow`
 | `.github/workflows/renovate-config.yaml` | No | Yes (`paths` filtered) | No | Yes | Yes |
 | `.github/workflows/docker-build.yaml` | No | No | Yes (`tags: v*`) | Yes | No |
 | `.github/workflows/helm-validate.yaml` | No (direct) | No (direct) | No (direct) | No | Yes |
+| `.github/workflows/helm-install-smoke.yaml` | No (direct) | No (direct) | No (direct) | No | Yes |
 | `.github/workflows/release-chart.yaml` | No (direct) | No (direct) | No (direct) | No | Yes |
 | `.github/workflows/pr-required-checks-chart.yaml` | No (direct) | No (direct) | No (direct) | No | Yes |
 | `.github/workflows/renovate-snapshot-update.yaml` | No (direct) | No (direct) | No (direct) | No | Yes |
@@ -93,8 +94,9 @@ Why it exists: publish `helm-validate` tool image.
 | Workflow | Internal jobs | Effective run condition |
 |---|---|---|
 | `helm-validate.yaml` | `validate` | Only when called by another workflow/repo. |
+| `helm-install-smoke.yaml` | `install-smoke` | Only when called by another workflow/repo; creates a pinned kind cluster and runs `helm install` with the chart's minimal scenario values. |
 | `release-chart.yaml` | `release` | Only when called; expects tag context in caller for version/tag check. |
-| `pr-required-checks-chart.yaml` | `detect-changes`, `dependency-review`, `validate-*`, `renovate-config-validation`, `ci-required` | Only when chart repos call it; executes chart-specific required-check orchestration. |
+| `pr-required-checks-chart.yaml` | `detect-changes`, `dependency-review`, `validate-*`, `install-smoke-*`, `renovate-config-validation`, `ci-required` | Only when chart repos call it; executes chart-specific required-check orchestration. |
 | `renovate-snapshot-update.yaml` | `update-snapshots` | Only when called in PR context and actor+PR author are `renovate[bot]` from same repo. |
 
 ## Consumer Caller Contract Notes
@@ -105,9 +107,8 @@ Why it exists: publish `helm-validate` tool image.
 - Render-input path filter: `Chart.yaml`, `Chart.lock`, `values.yaml`, `templates/**`, `charts/**`, and `tests/scenarios/**`.
 - Deliberate exclusion: `tests/snapshots/**` is excluded so the bot does not retrigger itself after committing refreshed snapshots.
 - Concurrency contract: the caller wrapper and reusable workflow use distinct group prefixes so the reusable run cannot cancel its caller.
-- Validation scope: snapshot refresh proves render drift only. It does not provide install-time smoke.
-- Explicit remaining gap: no `ct install`-class smoke gate exists as of 2026-04-30. Owner: `build-workflow` maintainer.
-- Manual gate until closed: release or rollout evidence must keep this install-smoke gap explicit and must not claim install confidence from `ct lint` or snapshot refresh alone.
+- Validation scope: snapshot refresh proves render drift only. Install-time smoke is enforced separately by `pr-required-checks-chart.yaml` through `helm-install-smoke.yaml`.
+- Minimal scenario contract: `tests/scenarios/minimal.yaml` must remain installable on a plain kind cluster without extra CRDs or environment-specific controllers.
 
 ## PR vs Merge vs Tag: Practical Summary
 
@@ -115,7 +116,7 @@ Why it exists: publish `helm-validate` tool image.
 |---|---|
 | Open/update PR to `main` touching workflows/scripts/docker | `pr-required-checks` only as PR entrypoint (with selective child jobs: guardrails/docker-smoke/dependency-review/renovate/codeql), plus `detect-required-checks-tests` if relevant files changed. |
 | Merge PR to `main` | `quality-guardrails`, `codeql`, `detect-required-checks-tests`, `renovate-config` only if each workflow's `push.paths` match changed files. |
-| Push tag like `v0.1.22` | `docker-build` only (unless manually dispatching others). |
+| Push tag like `v0.1.23` | `docker-build` only (unless manually dispatching others). |
 
 ## Best-Practice Notes For Codex Context
 - Keep required PR gating centralized through `pr-required-checks.yaml` + `ci-required` aggregator.

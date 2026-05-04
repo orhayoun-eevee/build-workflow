@@ -24,6 +24,7 @@ See `docs/workflow-trigger-matrix.md` for a clear map of:
 build-workflow/
 ├── .github/workflows/
 │   ├── helm-validate.yaml     # Reusable: 5-layer validation pipeline
+│   ├── helm-install-smoke.yaml # Reusable: kind-backed install smoke gate
 │   ├── pr-required-checks-chart.yaml # Reusable: centralized chart PR gate orchestration
 │   ├── release-chart.yaml     # Reusable: publish chart to OCI registry
 │   ├── dependency-review.yaml # Reusable: dependency risk review for PRs
@@ -42,6 +43,8 @@ build-workflow/
 │   ├── validate-metadata.sh       # Layer 3: chart-testing (ct lint)
 │   ├── validate-tests.sh          # Layer 4: helm-unittest + snapshots
 │   ├── validate-policy.sh         # Layer 5: Checkov + kube-linter
+│   ├── run-install-smoke.sh       # Kind-backed helm install smoke
+│   ├── setup-install-smoke-tools.sh # Install pinned cluster smoke binaries
 │   └── update-snapshots.sh        # Shared snapshot regeneration helper
 ├── configs/
 │   ├── yamllint.yaml              # yamllint rules
@@ -67,6 +70,10 @@ A universal, layered Helm chart validation framework that enforces strict qualit
 | 5. Policy Enforcement | Checkov, kube-linter | CIS benchmarks, security best practices |
 
 The pipeline uses **fast-fail**: if any layer fails, subsequent layers are skipped. This ensures developers fix foundational issues (syntax) before investing time in policy checks.
+
+Chart PRs also run a separate install-smoke gate from `pr-required-checks-chart.yaml`.
+That job creates a pinned kind cluster and runs `helm install` with the chart's
+`tests/scenarios/minimal.yaml` values so install-time API errors are caught in CI.
 
 **Key features:**
 - Strict enforcement - all warnings and errors block PRs
@@ -148,6 +155,10 @@ deployment:
         repository: nginx
         tag: "1.27.0"
 ```
+
+`minimal.yaml` must stay installable on a plain kind cluster. Disable optional
+CRD-backed or environment-specific features there unless the install-smoke gate
+also provisions those dependencies.
 
 ```yaml
 # tests/scenarios/full.yaml - enables all features (used by Layer 5 policy scans)

@@ -51,7 +51,7 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: v0.1.22
+          ref: v0.1.23
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Detect changed paths
@@ -71,7 +71,7 @@ jobs:
     if: github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name == github.repository)
     permissions:
       contents: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.22
+    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.23
 
   validate-app:
     if: inputs.chart_kind == 'app' && needs.detect-changes.outputs.run_validate == 'true'
@@ -79,7 +79,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.22
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.23
     with:
       chart_path: .
       kubernetes_version: '1.30.0'
@@ -96,13 +96,30 @@ jobs:
       gh_app_id: ${{ secrets.gh_app_id }}
       gh_app_private_key: ${{ secrets.gh_app_private_key }}
 
+  install-smoke-app:
+    if: inputs.chart_kind == 'app' && needs.detect-changes.outputs.run_validate == 'true'
+    needs:
+      - detect-changes
+      - validate-app
+    permissions:
+      contents: read
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-install-smoke.yaml@v0.1.23
+    with:
+      chart_path: .
+      values_file: tests/scenarios/minimal.yaml
+      kubernetes_version: '1.30.0'
+      kind_node_image: 'kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e'
+    secrets:
+      gh_app_id: ${{ secrets.gh_app_id }}
+      gh_app_private_key: ${{ secrets.gh_app_private_key }}
+
   validate-lib:
     if: inputs.chart_kind == 'lib' && needs.detect-changes.outputs.run_validate == 'true'
     needs: detect-changes
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.22
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.23
     with:
       chart_path: libChart
       kubernetes_version: '1.30.0'
@@ -124,7 +141,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.22
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.23
     with:
       chart_path: test-chart
       kubernetes_version: '1.30.0'
@@ -141,12 +158,29 @@ jobs:
       gh_app_id: ${{ secrets.gh_app_id }}
       gh_app_private_key: ${{ secrets.gh_app_private_key }}
 
+  install-smoke-lib:
+    if: inputs.chart_kind == 'lib' && needs.detect-changes.outputs.run_validate == 'true'
+    needs:
+      - detect-changes
+      - validate-test
+    permissions:
+      contents: read
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-install-smoke.yaml@v0.1.23
+    with:
+      chart_path: test-chart
+      values_file: tests/scenarios/minimal.yaml
+      kubernetes_version: '1.30.0'
+      kind_node_image: 'kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e'
+    secrets:
+      gh_app_id: ${{ secrets.gh_app_id }}
+      gh_app_private_key: ${{ secrets.gh_app_private_key }}
+
   renovate-config-validation:
     needs: detect-changes
     if: needs.detect-changes.outputs.run_renovate_validation == 'true'
     permissions:
       contents: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.22
+    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.23
 
   ci-required:
     name: ci-required
@@ -159,8 +193,10 @@ jobs:
       - detect-changes
       - dependency-review
       - validate-app
+      - install-smoke-app
       - validate-lib
       - validate-test
+      - install-smoke-lib
       - renovate-config-validation
     steps:
       - name: Validate required job results
@@ -172,8 +208,10 @@ jobs:
             ["detect-changes"]="${{ needs.detect-changes.result }}"
             ["dependency-review"]="${{ needs.dependency-review.result }}"
             ["validate-app"]="${{ needs.validate-app.result }}"
+            ["install-smoke-app"]="${{ needs.install-smoke-app.result }}"
             ["validate-lib"]="${{ needs.validate-lib.result }}"
             ["validate-test"]="${{ needs.validate-test.result }}"
+            ["install-smoke-lib"]="${{ needs.install-smoke-lib.result }}"
             ["renovate-config-validation"]="${{ needs.renovate-config-validation.result }}"
           )
 

@@ -1,0 +1,113 @@
+name: Helm Install Smoke
+
+on:
+  workflow_call:
+    inputs:
+      chart_path:
+        description: 'Path to the Helm chart directory'
+        required: true
+        type: string
+      values_file:
+        description: 'Path to the minimal install values file (repo-relative)'
+        required: true
+        type: string
+      kubernetes_version:
+        description: 'Kubernetes version used for kubectl compatibility checks'
+        required: true
+        type: string
+      kind_node_image:
+        description: 'Pinned kind node image (include digest)'
+        required: true
+        type: string
+    secrets:
+      gh_app_id:
+        description: 'GitHub App ID for minting installation token'
+        required: true
+      gh_app_private_key:
+        description: 'GitHub App private key for minting installation token'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: helm-install-smoke-${{ github.workflow }}-${{ github.ref }}-${{ inputs.chart_path }}
+  cancel-in-progress: true
+
+jobs:
+  install-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      HELM_VERSION: 3.20.0
+      KIND_VERSION: 0.31.0
+      KUBECTL_VERSION: ${{ inputs.kubernetes_version }}
+      KIND_CLUSTER_NAME: install-smoke
+      KIND_NODE_IMAGE: ${{ inputs.kind_node_image }}
+      CHART_PATH: ${{ inputs.chart_path }}
+      VALUES_FILE: ${{ inputs.values_file }}
+      SMOKE_RELEASE_NAME: install-smoke
+      SMOKE_NAMESPACE: install-smoke
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Mint app token for cross-repo checkout
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
+        with:
+          app-id: ${{ secrets.gh_app_id }}
+          private-key: ${{ secrets.gh_app_private_key }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Checkout build-workflow helpers
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: orhayoun-eevee/build-workflow
+          path: .build-workflow
+          ref: v0.1.23
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Install install-smoke toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          .build-workflow/scripts/setup-install-smoke-tools.sh
+
+      - name: Create kind cluster
+        shell: bash
+        run: |
+          set -euo pipefail
+          kind create cluster \
+            --name "${KIND_CLUSTER_NAME}" \
+            --image "${KIND_NODE_IMAGE}" \
+            --wait 120s
+          kubectl cluster-info
+          kubectl wait --for=condition=Ready node --all --timeout=180s
+
+      - name: Run install smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          .build-workflow/scripts/run-install-smoke.sh
+
+      - name: Capture cluster diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl get nodes -o wide || true
+          kubectl get all -A || true
+          kubectl get pvc -A || true
+          kubectl get events -A --sort-by=.metadata.creationTimestamp || true
+
+      - name: Delete kind cluster
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          kind delete cluster --name "${KIND_CLUSTER_NAME}"
