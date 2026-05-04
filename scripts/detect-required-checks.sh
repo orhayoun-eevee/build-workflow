@@ -85,13 +85,14 @@ fi
 if [[ "${MODE}" == "chart" ]]; then
 	run_validate=false
 	run_renovate_validation=false
+	workflow_wrapper_pattern='^(\.github/workflows/pr-required-checks\.yaml|\.github/workflows/on-tag\.yaml|\.github/workflows/renovate-config\.yaml|\.github/workflows/renovate-snapshot-update\.yaml)$'
 
 	if [[ "${chart_kind}" == "lib" ]]; then
-		if grep -Eq '^(libChart/|test-chart/|tests/|scripts/|Makefile|ct\.yaml|\.checkov\.yaml|\.kube-linter\.yaml)' <<<"${changed_files}"; then
+		if grep -Eq '^(libChart/|test-chart/|tests/|scripts/|Makefile|ct\.yaml|\.checkov\.yaml|\.kube-linter\.yaml)' <<<"${changed_files}" || grep -Eq "${workflow_wrapper_pattern}" <<<"${changed_files}"; then
 			run_validate=true
 		fi
 	else
-		if grep -Eq '^(Chart\.yaml|Chart\.lock|values\.yaml|templates/|tests/|charts/|scripts/|Makefile|ct\.yaml|\.checkov\.yaml|\.kube-linter\.yaml)' <<<"${changed_files}"; then
+		if grep -Eq '^(Chart\.yaml|Chart\.lock|values\.yaml|templates/|tests/|charts/|scripts/|Makefile|ct\.yaml|\.checkov\.yaml|\.kube-linter\.yaml)' <<<"${changed_files}" || grep -Eq "${workflow_wrapper_pattern}" <<<"${changed_files}"; then
 			run_validate=true
 		fi
 	fi
