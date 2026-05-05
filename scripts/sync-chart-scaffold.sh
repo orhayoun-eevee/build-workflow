@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BUILD_WORKFLOW_REF="${BUILD_WORKFLOW_REF:-}"
 DRY_RUN=true
 
-REPOS=(helm-common-lib radarr-helm sonarr-helm sabnzbd-helm transmission-helm)
+REPOS=(helm-common-lib jellyfin-helm home-assistant-helm seerr-helm radarr-helm sonarr-helm sabnzbd-helm transmission-helm)
 
 usage() {
 	cat <<USAGE
@@ -15,7 +15,7 @@ Usage:
 Options:
   --apply                  Write files (default is dry-run)
   --ref <sha/tag/branch>   build-workflow ref to inject in workflows
-  --repos <a,b,c>          Limit sync to selected app repos
+  --repos <a,b,c>          Limit sync to selected repo directories
   --root <path>            Workspace root containing repo directories
 USAGE
 }
@@ -103,6 +103,9 @@ for repo in "${REPOS[@]}"; do
 		render_template "${LIB_TEMPLATE_ROOT}/.github/workflows/renovate-config.yaml" "${repo_root}/.github/workflows/renovate-config.yaml" "Helm Common Lib" "${repo}"
 		continue
 		;;
+	jellyfin-helm) chart_title="Jellyfin" ;;
+	home-assistant-helm) chart_title="Home Assistant" ;;
+	seerr-helm) chart_title="Seerr" ;;
 	radarr-helm) chart_title="Radarr" ;;
 	sonarr-helm) chart_title="Sonarr" ;;
 	sabnzbd-helm) chart_title="Sabnzbd" ;;
