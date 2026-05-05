@@ -20,6 +20,10 @@ permissions:
   contents: write
   packages: read
 
+env:
+  BUILD_WORKFLOW_REPOSITORY: orhayoun-eevee/build-workflow
+  BUILD_WORKFLOW_REF: v0.1.27
+
 concurrency:
   group: reusable-renovate-snapshot-update-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -38,20 +42,26 @@ jobs:
           app-id: ${{ secrets.gh_app_id }}
           private-key: ${{ secrets.gh_app_private_key }}
           owner: ${{ github.repository_owner }}
+          repositories: |
+            ${{ github.event.pull_request.head.repo.name }}
+            build-workflow
+          permission-contents: write
 
       - name: Checkout PR branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
+          persist-credentials: false
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Checkout build-workflow
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          repository: orhayoun-eevee/build-workflow
+          repository: ${{ env.BUILD_WORKFLOW_REPOSITORY }}
           path: .build-workflow
-          ref: v0.1.27
+          ref: ${{ env.BUILD_WORKFLOW_REF }}
+          persist-credentials: false
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Build pinned validation image
@@ -62,19 +72,181 @@ jobs:
         # is enforced separately by the shared PR required-check gate.
         run: make snapshot-update BUILD_WORKFLOW=.build-workflow DOCKER_IMAGE=helm-validate:renovate
 
-      - name: Commit updated snapshots
+      - name: Commit and push updated snapshots
+        id: write-back
         env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          BUILD_WORKFLOW_REF: ${{ env.BUILD_WORKFLOW_REF }}
           SNAPSHOTS_DIR: ${{ inputs.snapshots_dir }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          if git diff --quiet -- "${SNAPSHOTS_DIR}"; then
+          set -euo pipefail
+
+          sanitize_push_stderr() {
+            sed -E \
+              -e 's#https://x-access-token:[^@]+@github\.com/#https://x-access-token:***@github.com/#g' \
+              -e 's#x-access-token:[^@]+@#x-access-token:***@#g' \
+              "$1"
+          }
+
+          write_multiline_output() {
+            local name="$1"
+            local file_path="$2"
+
+            {
+              echo "${name}<<EOF"
+              cat "${file_path}"
+              echo "EOF"
+            } >> "${GITHUB_OUTPUT}"
+          }
+
+          current_ref="$(git rev-parse --abbrev-ref HEAD)"
+          git_status_file="$(mktemp)"
+          snapshot_diff_stat_file="$(mktemp)"
+          unexpected_paths_file="$(mktemp)"
+
+          git status --short --untracked-files=all > "${git_status_file}"
+          git diff --stat -- "${SNAPSHOTS_DIR}" > "${snapshot_diff_stat_file}" || true
+          : > "${unexpected_paths_file}"
+
+          snapshot_change_count=0
+          while IFS= read -r line; do
+            [[ -z "${line}" ]] && continue
+
+            path="${line:3}"
+            case "${path}" in
+              "${SNAPSHOTS_DIR}"|"${SNAPSHOTS_DIR}/"*)
+                snapshot_change_count=$((snapshot_change_count + 1))
+                ;;
+              *)
+                printf '%s\n' "${path}" >> "${unexpected_paths_file}"
+                ;;
+            esac
+          done < <(git status --porcelain=v1 --untracked-files=all)
+
+          {
+            echo "current_ref=${current_ref}"
+            echo "target_ref=${PR_HEAD_REF}"
+            echo "build_workflow_ref=${BUILD_WORKFLOW_REF}"
+            echo "snapshot_change_count=${snapshot_change_count}"
+            echo "pushed_sha="
+          } >> "${GITHUB_OUTPUT}"
+
+          if [[ -s "${unexpected_paths_file}" ]]; then
+            echo "result=unexpected-diff" >> "${GITHUB_OUTPUT}"
+            write_multiline_output "git_status" "${git_status_file}"
+            write_multiline_output "unexpected_paths" "${unexpected_paths_file}"
+            write_multiline_output "snapshot_diff_stat" "${snapshot_diff_stat_file}"
+
+            echo "Unexpected non-snapshot changes detected after snapshot refresh:"
+            echo "Git status:"
+            cat "${git_status_file}"
+            cat "${unexpected_paths_file}"
+            echo "Snapshot diff scope (${SNAPSHOTS_DIR}):"
+            cat "${snapshot_diff_stat_file}"
+            exit 1
+          fi
+
+          if (( snapshot_change_count == 0 )); then
+            echo "result=no-op" >> "${GITHUB_OUTPUT}"
             echo "No snapshot changes to commit"
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add "${SNAPSHOTS_DIR}"
+          git add -- "${SNAPSHOTS_DIR}"
           git commit -m "test(snapshot): refresh snapshots for renovate update"
-          git remote set-url origin "https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/${{ github.repository }}.git"
-          git push origin "HEAD:${PR_HEAD_REF}"
+
+          push_stderr_file="$(mktemp)"
+          git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if ! git push origin "HEAD:${PR_HEAD_REF}" 2>"${push_stderr_file}"; then
+            sanitized_push_stderr_file="$(mktemp)"
+            sanitize_push_stderr "${push_stderr_file}" > "${sanitized_push_stderr_file}"
+
+            echo "result=push-failed" >> "${GITHUB_OUTPUT}"
+            write_multiline_output "git_status" "${git_status_file}"
+            write_multiline_output "snapshot_diff_stat" "${snapshot_diff_stat_file}"
+            write_multiline_output "push_stderr" "${sanitized_push_stderr_file}"
+
+            echo "Push failed for target ref: ${PR_HEAD_REF}"
+            echo "Current ref: ${current_ref}"
+            echo "Git status:"
+            cat "${git_status_file}"
+            echo "Snapshot diff scope (${SNAPSHOTS_DIR}):"
+            cat "${snapshot_diff_stat_file}"
+            echo "Sanitized push stderr:"
+            cat "${sanitized_push_stderr_file}"
+            exit 1
+          fi
+
+          pushed_sha="$(git rev-parse HEAD)"
+          {
+            echo "result=changed"
+            echo "pushed_sha=${pushed_sha}"
+          } >> "${GITHUB_OUTPUT}"
+          write_multiline_output "snapshot_diff_stat" "${snapshot_diff_stat_file}"
+
+      - name: Summarize snapshot write-back
+        if: always()
+        env:
+          BUILD_WORKFLOW_REF_SUMMARY: ${{ env.BUILD_WORKFLOW_REF }}
+          CURRENT_REF: ${{ steps.write-back.outputs.current_ref }}
+          GIT_STATUS: ${{ steps.write-back.outputs.git_status }}
+          PR_HEAD_REF_SUMMARY: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER_SUMMARY: ${{ github.event.pull_request.number }}
+          PRE_WRITE_SHA_SUMMARY: ${{ github.event.pull_request.head.sha }}
+          PUSHED_SHA: ${{ steps.write-back.outputs.pushed_sha }}
+          PUSH_STDERR: ${{ steps.write-back.outputs.push_stderr }}
+          REPOSITORY_NAME: ${{ github.repository }}
+          RESULT: ${{ steps.write-back.outputs.result }}
+          SNAPSHOT_CHANGE_COUNT: ${{ steps.write-back.outputs.snapshot_change_count }}
+          SNAPSHOT_DIFF_STAT: ${{ steps.write-back.outputs.snapshot_diff_stat }}
+          TARGET_REF: ${{ steps.write-back.outputs.target_ref }}
+          UNEXPECTED_PATHS: ${{ steps.write-back.outputs.unexpected_paths }}
+        run: |
+          {
+            echo "## Renovate Snapshot Update"
+            echo ""
+            echo "- Repository: \`${REPOSITORY_NAME}\`"
+            echo "- PR number: \`${PR_NUMBER_SUMMARY}\`"
+            echo "- PR head ref: \`${PR_HEAD_REF_SUMMARY}\`"
+            echo "- Pre-write PR head SHA: \`${PRE_WRITE_SHA_SUMMARY}\`"
+            echo "- build-workflow ref: \`${BUILD_WORKFLOW_REF_SUMMARY}\`"
+            echo "- Result: \`${RESULT:-unknown}\`"
+            echo "- Changed snapshot file count: \`${SNAPSHOT_CHANGE_COUNT:-0}\`"
+            echo "- Pushed commit SHA: \`${PUSHED_SHA:-n/a}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          if [[ -n "${UNEXPECTED_PATHS:-}" ]]; then
+            {
+              echo ""
+              echo "### Unexpected Non-Snapshot Changes"
+              echo '```text'
+              printf '%s\n' "${UNEXPECTED_PATHS}"
+              echo '```'
+            } >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
+          if [[ "${RESULT:-}" == "push-failed" ]]; then
+            {
+              echo ""
+              echo "- Current ref: \`${CURRENT_REF:-unknown}\`"
+              echo "- Target ref: \`${TARGET_REF:-unknown}\`"
+              echo ""
+              echo "### Git Status"
+              echo '```text'
+              printf '%s\n' "${GIT_STATUS:-}"
+              echo '```'
+              echo ""
+              echo "### Snapshot Diff Scope"
+              echo '```text'
+              printf '%s\n' "${SNAPSHOT_DIFF_STAT:-}"
+              echo '```'
+              echo ""
+              echo "### Sanitized Push Stderr"
+              echo '```text'
+              printf '%s\n' "${PUSH_STDERR:-}"
+              echo '```'
+            } >> "${GITHUB_STEP_SUMMARY}"
+          fi
