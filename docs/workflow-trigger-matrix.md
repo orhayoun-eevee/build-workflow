@@ -1,7 +1,10 @@
 # Build-Workflow Trigger Matrix
 
-Last updated: 2026-05-04
+Last updated: 2026-05-05
 Repository: `orhayoun-eevee/build-workflow`
+
+The GitHub wiki is disabled for this repository. Use this file and
+`../README.md` as the checked-in workflow reference.
 
 ## Scope and terms
 - **PR** = `pull_request` events targeting `main`.
@@ -97,7 +100,7 @@ Why it exists: publish `helm-validate` tool image.
 | `helm-install-smoke.yaml` | `install-smoke` | Only when called by another workflow/repo; creates a pinned kind cluster and runs `helm install` with the chart's minimal scenario values. |
 | `release-chart.yaml` | `release` | Only when called; expects tag context in caller for version/tag check. |
 | `pr-required-checks-chart.yaml` | `detect-changes`, `dependency-review`, `validate-*`, `install-smoke-*`, `renovate-config-validation`, `ci-required` | Only when chart repos call it; executes chart-specific required-check orchestration. |
-| `renovate-snapshot-update.yaml` | `update-snapshots` | Only when called in PR context and actor+PR author are `renovate[bot]` from same repo. |
+| `renovate-snapshot-update.yaml` | `update-snapshots` | Only when called in PR context and actor+PR author are `renovate[bot]` from same repo; emits no-op or write-back evidence and fails on unexpected non-snapshot diffs or push failures. |
 
 ## Consumer Caller Contract Notes
 
@@ -107,10 +110,14 @@ Why it exists: publish `helm-validate` tool image.
 - Render-input path filter: `Chart.yaml`, `Chart.lock`, `values.yaml`, `templates/**`, `charts/**`, and `tests/scenarios/**`.
 - Deliberate exclusion: `tests/snapshots/**` is excluded so the bot does not retrigger itself after committing refreshed snapshots.
 - Concurrency contract: the caller wrapper and reusable workflow use distinct group prefixes so the reusable run cannot cancel its caller.
+- Secrets contract: the caller passes `GHCR_AUTO_APP_ID` and `GHCR_AUTO_PKEY`; the reusable interface remains `workflow_call` with `snapshots_dir`.
+- Mutation contract: same-branch GitHub App write-back only. No `GITHUB_TOKEN`, PAT, manual branch update, or second PR fallback is part of the active contract.
+- Evidence contract: every run summarizes repo, PR number, PR head ref, pre-write PR head SHA, `build-workflow` ref, result, changed snapshot file count, and pushed commit SHA. Push failures also capture current ref, target ref, `git status`, snapshot diff scope, and sanitized push stderr.
 - Validation scope: snapshot refresh proves render drift only. Install-time smoke is enforced separately by `pr-required-checks-chart.yaml` through `helm-install-smoke.yaml`.
 - Minimal scenario contract: `tests/scenarios/minimal.yaml` must remain installable on a plain kind cluster without extra CRDs or environment-specific controllers.
 - Namespace contract: install smoke forces `global.namespace` to the temporary smoke namespace so charts with explicit namespace rendering do not depend on repo-default namespaces.
 - Wrapper rollout contract: changing any consumer wrapper ref (`pr-required-checks`, `on-tag`, `renovate-config`, or `renovate-snapshot-update`) is treated as validation-relevant and re-runs chart CI in PRs.
+- Future-state boundary: app-chart `renovate.json` stays unchanged in the active rollout. Any `postUpgradeTasks` or command-allowlist evaluation is separate follow-on work.
 
 ## PR vs Merge vs Tag: Practical Summary
 
