@@ -18,6 +18,10 @@ See `docs/workflow-trigger-matrix.md` for a clear map of:
 - whether it is automatic or manual
 - and what responsibility it owns
 
+The GitHub wiki is disabled for this repository. Treat this README and
+`docs/` as the checked-in source of truth for workflow behavior and chart
+consumer contracts.
+
 ## Repository Structure
 
 ```
@@ -138,6 +142,26 @@ Do not require path-filtered workflow checks directly. Use the always-on
 (for both `pull_request` and `merge_group` events).
 
 This guarantees automerge can only complete when CI is green.
+
+### Renovate snapshot update contract
+
+For app-chart consumers, committed snapshots stay on the original Renovate PR.
+The active contract is:
+
+- caller wrapper trigger inputs: `Chart.yaml`, `Chart.lock`, `values.yaml`,
+  `templates/**`, `charts/**`, and `tests/scenarios/**`
+- caller wrapper exclusion: `tests/snapshots/**`
+- mutation path: same-branch GitHub App write-back only; no `GITHUB_TOKEN`,
+  PAT, second PR, or manual branch update
+- evidence: every run records repo, PR number, PR head ref, pre-write head
+  SHA, `build-workflow` ref, result, changed snapshot file count, and pushed
+  SHA; push failures also record current ref, target ref, snapshot diff scope,
+  `git status`, and sanitized push stderr
+- stop point: do not add `postUpgradeTasks`, `allowedCommands`, or
+  `allowedPostUpgradeCommands` during this rollout
+
+See `docs/workflow-trigger-matrix.md` and the `renovate-snapshot-update.yaml`
+reference below for the caller and reusable workflow contracts.
 
 ### 2. Create scenario fixtures
 
@@ -351,6 +375,58 @@ jobs:
       contents: read
       packages: write
 ```
+
+---
+
+### renovate-snapshot-update.yaml
+
+**Purpose:** Regenerate committed snapshots on safe same-repo Renovate PRs and
+push only `tests/snapshots/**` changes back to the existing PR branch.
+
+**Trigger:** `workflow_call` only (called by app-chart wrappers).
+
+| Input | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `snapshots_dir` | string | No | `tests/snapshots` | Snapshot directory staged and committed by the reusable workflow |
+
+**Required secrets:**
+- `gh_app_id`
+- `gh_app_private_key`
+
+**Caller wrapper contract:**
+- `pull_request` `opened`, `synchronize`, and `reopened` on `branches: [main]`
+- render-input paths: `Chart.yaml`, `Chart.lock`, `values.yaml`,
+  `templates/**`, `charts/**`, and `tests/scenarios/**`
+- deliberate exclusion: `tests/snapshots/**`
+- same-repo PR guard in the caller wrapper
+- distinct caller and reusable concurrency group prefixes
+
+**How it works:**
+1. Mints a GitHub App installation token scoped to the current app-chart repo
+   plus `build-workflow`.
+2. Checks out the Renovate PR branch with persisted default credentials
+   disabled.
+3. Checks out `build-workflow` at the ref pinned by the reusable workflow.
+4. Builds the pinned validation image locally as `helm-validate:renovate`.
+5. Runs `make snapshot-update` against the checked-out build-workflow copy.
+6. Fails if any path outside `snapshots_dir` changed.
+7. Exits successfully when `snapshots_dir` has no diff.
+8. Commits only `snapshots_dir` changes and pushes them back to the same PR
+   branch.
+9. Emits a step summary with repo, PR number, head ref, pre-write head SHA,
+   `build-workflow` ref, result, changed snapshot file count, and pushed SHA.
+
+**Failure behavior:**
+- Keeps GitHub App same-branch write-back as the only mutation path.
+- Fails the original PR on unexpected non-snapshot diffs or push failures.
+- Records current ref, target ref, `git status`, snapshot diff scope, and
+  sanitized push stderr when the push step fails.
+- Does not create a second PR or fall back to `GITHUB_TOKEN`, PATs, or
+  `postUpgradeTasks`.
+
+**Scope note:** This wrapper is for app-chart consumers only. `helm-common-lib`
+shares the released workflow refs but does not adopt the snapshot-update
+wrapper.
 
 ---
 

@@ -3,13 +3,41 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DETECT_SCRIPT="${SCRIPT_DIR}/detect-required-checks.sh"
+SYNC_SCRIPT="${SCRIPT_DIR}/sync-chart-scaffold.sh"
+BUILD_WORKFLOW_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 assert_contains() {
 	local file="$1"
 	local expected="$2"
-	if ! grep -qx "${expected}" "${file}"; then
+	if ! grep -Fqx "${expected}" "${file}"; then
 		echo "Expected output '${expected}' not found in ${file}" >&2
 		cat "${file}" >&2
+		exit 1
+	fi
+}
+
+assert_not_contains() {
+	local file="$1"
+	local unexpected="$2"
+	if grep -Fqx "${unexpected}" "${file}"; then
+		echo "Unexpected output '${unexpected}' found in ${file}" >&2
+		cat "${file}" >&2
+		exit 1
+	fi
+}
+
+assert_file_exists() {
+	local file="$1"
+	if [[ ! -f "${file}" ]]; then
+		echo "Expected file '${file}' to exist" >&2
+		exit 1
+	fi
+}
+
+assert_file_missing() {
+	local file="$1"
+	if [[ -e "${file}" ]]; then
+		echo "Expected file '${file}' to be absent" >&2
 		exit 1
 	fi
 }
@@ -161,6 +189,52 @@ EOF
 	MODE=chart EVENT_NAME=merge_group CHART_KIND=app GITHUB_OUTPUT="${out}" "${DETECT_SCRIPT}"
 	assert_contains "${out}" "run_validate=true"
 	assert_contains "${out}" "run_renovate_validation=true"
+
+	workspace="${tmpdir}/workspace"
+	mkdir -p "${workspace}"
+	ln -s "${BUILD_WORKFLOW_ROOT}" "${workspace}/build-workflow"
+
+	for scaffold_repo in helm-common-lib jellyfin-helm home-assistant-helm seerr-helm radarr-helm sonarr-helm sabnzbd-helm transmission-helm; do
+		mkdir -p "${workspace}/${scaffold_repo}"
+	done
+
+	mkdir -p "${workspace}/helm-common-lib/.github/workflows"
+
+	for app_repo in jellyfin-helm home-assistant-helm seerr-helm radarr-helm sonarr-helm sabnzbd-helm transmission-helm; do
+		mkdir -p "${workspace}/${app_repo}/.github/workflows" "${workspace}/${app_repo}/scripts"
+	done
+
+	scaffold_out="${tmpdir}/sync-chart-scaffold.out"
+	"${SYNC_SCRIPT}" --apply --root "${workspace}" --ref "v-test" >"${scaffold_out}"
+
+	for app_repo in jellyfin-helm home-assistant-helm seerr-helm radarr-helm sonarr-helm sabnzbd-helm transmission-helm; do
+		assert_file_exists "${workspace}/${app_repo}/.github/workflows/renovate-snapshot-update.yaml"
+	done
+
+	assert_file_missing "${workspace}/helm-common-lib/.github/workflows/renovate-snapshot-update.yaml"
+
+	wrapper_count="$(find "${workspace}" -path '*/.github/workflows/renovate-snapshot-update.yaml' | wc -l | tr -d ' ')"
+	if [[ "${wrapper_count}" != "7" ]]; then
+		echo "Expected exactly 7 app-chart snapshot wrappers, found ${wrapper_count}" >&2
+		find "${workspace}" -path '*/.github/workflows/renovate-snapshot-update.yaml' -print >&2
+		exit 1
+	fi
+
+	rendered_wrapper="${workspace}/jellyfin-helm/.github/workflows/renovate-snapshot-update.yaml"
+	assert_contains "${rendered_wrapper}" "    types: [opened, synchronize, reopened]"
+	assert_contains "${rendered_wrapper}" "    branches: [main]"
+	assert_contains "${rendered_wrapper}" "      - \"Chart.yaml\""
+	assert_contains "${rendered_wrapper}" "      - \"Chart.lock\""
+	assert_contains "${rendered_wrapper}" "      - \"values.yaml\""
+	assert_contains "${rendered_wrapper}" "      - \"templates/**\""
+	assert_contains "${rendered_wrapper}" "      - \"charts/**\""
+	assert_contains "${rendered_wrapper}" "      - \"tests/scenarios/**\""
+	assert_not_contains "${rendered_wrapper}" "      - \"tests/snapshots/**\""
+	assert_contains "${rendered_wrapper}" '    if: github.event.pull_request.head.repo.full_name == github.repository'
+	assert_contains "${rendered_wrapper}" "    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-snapshot-update.yaml@v-test"
+	assert_not_contains "${rendered_wrapper}" "    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-snapshot-update.yaml@__BUILD_WORKFLOW_REF__"
+	assert_not_contains "${rendered_wrapper}" "__BUILD_WORKFLOW_REF__"
+	assert_contains "${rendered_wrapper}" "  group: caller-renovate-snapshot-update-\${{ github.workflow }}-\${{ github.ref }}"
 )
 
 echo "detect-required-checks tests passed"
