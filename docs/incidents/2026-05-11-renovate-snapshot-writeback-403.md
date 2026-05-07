@@ -23,6 +23,30 @@ These run IDs came from the rollout design and ADR evidence set available on
 2026-05-05. The exact root cause was still unconfirmed when this note was
 created.
 
+## 2026-05-07 Canary Follow-Up
+
+Controlled canary PR: `jellyfin-helm#15` (`renovate/helm-dependencies`)
+
+| Repo | PR | GitHub run ID | Observed symptom |
+|------|----|---------------|------------------|
+| `jellyfin-helm` | `#15` | `25493423181` | Token mint failed before checkout with HTTP `422`: the GitHub App installation did not grant the requested multi-repo token scope (`jellyfin-helm, build-workflow`) |
+
+Paired required-check evidence on the same PR head SHA:
+
+| Repo | PR | GitHub run ID | Observed result |
+|------|----|---------------|-----------------|
+| `jellyfin-helm` | `#15` | `25493423409` | `ci-required` passed on pre-write head SHA `594a69b249618f98e10193b8cb4178aee8cd7c31` |
+
+Key log lines from run `25493423181`:
+
+- `Failed to create token for "jellyfin-helm,build-workflow" (attempt 1): The permissions requested are not granted to this installation.`
+- API status: `422`
+- Workflow ref under test: `orhayoun-eevee/build-workflow/.github/workflows/renovate-snapshot-update.yaml@refs/tags/v0.1.28`
+
+This follow-up narrows the producer-side defect: at least one current failure
+mode occurs before snapshot regeneration or push-back, and it is caused by the
+requested GitHub App repository scope rather than by branch write-back itself.
+
 ## What This Confirms
 
 - Same-branch GitHub Actions write-back was exercised in multiple app-chart
@@ -35,6 +59,9 @@ created.
 
 - Whether the failure was caused by branch protection, repo rulesets, app
   installation scope, token permissions, or another GitHub-side condition.
+- Whether the newer canary-side `422` token-mint failure is the only remaining
+  defect after producer hardening, or whether any downstream push-back `403`
+  still remains once token scope is corrected.
 - Whether later workflow hardening fully removes the symptom across all repos.
 - Whether a given failed run had snapshot drift, no-op output, or another
   contributing repository state without its preserved workflow summary.

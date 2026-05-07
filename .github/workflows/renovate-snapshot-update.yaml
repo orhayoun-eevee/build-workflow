@@ -22,7 +22,7 @@ permissions:
 
 env:
   BUILD_WORKFLOW_REPOSITORY: orhayoun-eevee/build-workflow
-  BUILD_WORKFLOW_REF: v0.1.28
+  BUILD_WORKFLOW_REF: v0.1.29
 
 concurrency:
   group: reusable-renovate-snapshot-update-${{ github.workflow }}-${{ github.ref }}
@@ -42,9 +42,7 @@ jobs:
           app-id: ${{ secrets.gh_app_id }}
           private-key: ${{ secrets.gh_app_private_key }}
           owner: ${{ github.repository_owner }}
-          repositories: |
-            ${{ github.event.pull_request.head.repo.name }}
-            build-workflow
+          repositories: ${{ github.event.pull_request.head.repo.name }}
           permission-contents: write
 
       - name: Checkout PR branch
@@ -62,7 +60,6 @@ jobs:
           path: .build-workflow
           ref: ${{ env.BUILD_WORKFLOW_REF }}
           persist-credentials: false
-          token: ${{ steps.app-token.outputs.token }}
 
       - name: Build pinned validation image
         run: make docker-build BUILD_WORKFLOW=.build-workflow DOCKER_IMAGE=helm-validate:renovate

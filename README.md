@@ -402,11 +402,12 @@ push only `tests/snapshots/**` changes back to the existing PR branch.
 - distinct caller and reusable concurrency group prefixes
 
 **How it works:**
-1. Mints a GitHub App installation token scoped to the current app-chart repo
-   plus `build-workflow`.
+1. Mints a GitHub App installation token scoped only to the current app-chart
+   repo for same-branch write-back.
 2. Checks out the Renovate PR branch with persisted default credentials
    disabled.
-3. Checks out `build-workflow` at the ref pinned by the reusable workflow.
+3. Checks out the public `build-workflow` repo at the ref pinned by the
+   reusable workflow.
 4. Builds the pinned validation image locally as `helm-validate:renovate`.
 5. Runs `make snapshot-update` against the checked-out build-workflow copy.
 6. Fails if any path outside `snapshots_dir` changed.
