@@ -104,6 +104,31 @@ remaining blocker moved back into repo code: `build-workflow` must ignore its
 own helper checkout path when classifying unexpected mutations in the reusable
 snapshot updater.
 
+## 2026-05-08 Home Assistant Rebase Follow-Up
+
+Refreshed Renovate PR: `home-assistant-helm#2` (`renovate/container-images`)
+
+| Repo | PR | GitHub run ID | Observed symptom |
+|------|----|---------------|------------------|
+| `home-assistant-helm` | `#2` | `25548754098` | The refreshed pull request used trusted repo-local bot actor `ghcr-automation[bot]`, but the reusable workflow still skipped because its guard only allowed `renovate[bot]` |
+
+Supporting evidence:
+
+- PR head branch: `renovate/container-images`
+- PR remained same-repo (`home-assistant-helm`)
+- workflow run metadata:
+  - `event: pull_request`
+  - `actor: ghcr-automation[bot]`
+  - `triggering_actor: ghcr-automation[bot]`
+  - `head_sha: c8467fe8c8616c6c8deb735a0d635b8f037b3b2c`
+- paired required-check run `25548754140` passed on the same refreshed head SHA
+
+This follow-up narrows the next producer-side defect: the active job guard is
+too strict for the trusted bot identities now used during same-repo Renovate
+branch refreshes. The next hardening step must allow the known trusted bot
+actor set for same-repo `renovate/*` pull requests without reopening the manual
+actor path that was intentionally blocked earlier.
+
 ## External Configuration Findings
 
 Collected on 2026-05-07 with GitHub API and workflow evidence:

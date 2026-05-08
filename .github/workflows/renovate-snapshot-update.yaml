@@ -22,7 +22,7 @@ permissions:
 
 env:
   BUILD_WORKFLOW_REPOSITORY: orhayoun-eevee/build-workflow
-  BUILD_WORKFLOW_REF: v0.1.30
+  BUILD_WORKFLOW_REF: v0.1.31
 
 concurrency:
   group: reusable-renovate-snapshot-update-${{ github.workflow }}-${{ github.ref }}
@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
   update-snapshots:
-    if: github.event_name == 'pull_request' && github.actor == 'renovate[bot]' && github.event.pull_request.user.login == 'renovate[bot]' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.event.pull_request.head.ref, 'renovate/') && (github.actor == 'renovate[bot]' || github.actor == 'ghcr-automation[bot]') && (github.event.pull_request.user.login == 'renovate[bot]' || github.event.pull_request.user.login == 'app/renovate')
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
