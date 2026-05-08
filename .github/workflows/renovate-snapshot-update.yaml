@@ -22,7 +22,7 @@ permissions:
 
 env:
   BUILD_WORKFLOW_REPOSITORY: orhayoun-eevee/build-workflow
-  BUILD_WORKFLOW_REF: v0.1.29
+  BUILD_WORKFLOW_REF: v0.1.30
 
 concurrency:
   group: reusable-renovate-snapshot-update-${{ github.workflow }}-${{ github.ref }}
@@ -97,12 +97,26 @@ jobs:
             } >> "${GITHUB_OUTPUT}"
           }
 
+          is_expected_workspace_path() {
+            local path="$1"
+            case "${path}" in
+              .build-workflow|.build-workflow/*)
+                return 0
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
+
           current_ref="$(git rev-parse --abbrev-ref HEAD)"
+          raw_git_status_file="$(mktemp)"
           git_status_file="$(mktemp)"
           snapshot_diff_stat_file="$(mktemp)"
           unexpected_paths_file="$(mktemp)"
 
-          git status --short --untracked-files=all > "${git_status_file}"
+          git status --short --untracked-files=all > "${raw_git_status_file}"
+          : > "${git_status_file}"
           git diff --stat -- "${SNAPSHOTS_DIR}" > "${snapshot_diff_stat_file}" || true
           : > "${unexpected_paths_file}"
 
@@ -111,6 +125,11 @@ jobs:
             [[ -z "${line}" ]] && continue
 
             path="${line:3}"
+            if is_expected_workspace_path "${path}"; then
+              continue
+            fi
+
+            printf '%s\n' "${line}" >> "${git_status_file}"
             case "${path}" in
               "${SNAPSHOTS_DIR}"|"${SNAPSHOTS_DIR}/"*)
                 snapshot_change_count=$((snapshot_change_count + 1))
@@ -119,7 +138,7 @@ jobs:
                 printf '%s\n' "${path}" >> "${unexpected_paths_file}"
                 ;;
             esac
-          done < <(git status --porcelain=v1 --untracked-files=all)
+          done < "${raw_git_status_file}"
 
           {
             echo "current_ref=${current_ref}"
