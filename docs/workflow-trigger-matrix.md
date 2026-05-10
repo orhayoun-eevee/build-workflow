@@ -100,7 +100,7 @@ Why it exists: publish `helm-validate` tool image.
 | `helm-install-smoke.yaml` | `install-smoke` | Only when called by another workflow/repo; creates a pinned kind cluster and runs `helm install` with the chart's minimal scenario values. |
 | `release-chart.yaml` | `release` | Only when called; expects tag context in caller for version/tag check. |
 | `pr-required-checks-chart.yaml` | `detect-changes`, `dependency-review`, `validate-*`, `install-smoke-*`, `renovate-config-validation`, `ci-required` | Only when chart repos call it; executes chart-specific required-check orchestration. |
-| `renovate-snapshot-update.yaml` | `update-snapshots` | Only when called in PR context and actor+PR author are `renovate[bot]` from same repo; emits no-op or write-back evidence and fails on unexpected non-snapshot diffs or push failures. |
+| `renovate-snapshot-update.yaml` | `update-snapshots` | Only when called in PR context for same-repo `renovate/*` branches from trusted Renovate automation actors; emits no-op or write-back evidence and fails on unexpected non-snapshot diffs or push failures. |
 
 ## Consumer Caller Contract Notes
 
@@ -125,7 +125,7 @@ Why it exists: publish `helm-validate` tool image.
 |---|---|
 | Open/update PR to `main` touching workflows/scripts/docker | `pr-required-checks` only as PR entrypoint (with selective child jobs: guardrails/docker-smoke/dependency-review/renovate/codeql), plus `detect-required-checks-tests` if relevant files changed. |
 | Merge PR to `main` | `quality-guardrails`, `codeql`, `detect-required-checks-tests`, `renovate-config` only if each workflow's `push.paths` match changed files. |
-| Push tag like `v0.1.31` | `docker-build` only (unless manually dispatching others). |
+| Push tag like `v0.1.32` | `docker-build` only (unless manually dispatching others). |
 
 ## Best-Practice Notes For Codex Context
 - Keep required PR gating centralized through `pr-required-checks.yaml` + `ci-required` aggregator.
