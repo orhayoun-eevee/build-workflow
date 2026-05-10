@@ -1,6 +1,6 @@
 # Renovate Snapshot Write-Back 403 Baseline
 
-Status: Open symptom baseline  
+Status: Closed for active rollout; retained as symptom baseline  
 Created: 2026-05-05  
 Checkpoint due: 2026-05-11  
 Scope: Same-branch `tests/snapshots/**` write-back in app-chart Renovate PRs
@@ -129,6 +129,26 @@ branch refreshes. The next hardening step must allow the known trusted bot
 actor set for same-repo `renovate/*` pull requests without reopening the manual
 actor path that was intentionally blocked earlier.
 
+## 2026-05-10 Successful Active-Rollout Proof
+
+Refreshed Renovate PR: `seerr-helm#5` (`renovate/container-images`)
+
+| Repo | PR | GitHub run ID | Observed result |
+|------|----|---------------|-----------------|
+| `seerr-helm` | `#5` | `25635400442` | Snapshot write-back succeeded. The workflow started from pre-write SHA `f43b1b942b6c0554451ba21d170717ebe0148c55`, pushed commit `bc846190e2dd3716d4f4a0bf6e9056c7e250e9c8`, reported `RESULT: changed`, and changed three snapshot files. |
+| `seerr-helm` | `#5` | `25635425971` | Follow-up snapshot run on the pushed SHA completed as a no-op. |
+
+Paired required-check evidence on the final PR head SHA:
+
+| Repo | PR | Final head SHA | Observed result |
+|------|----|----------------|-----------------|
+| `seerr-helm` | `#5` | `bc846190e2dd3716d4f4a0bf6e9056c7e250e9c8` | `update-snapshots`, `validate-app`, `install-smoke-app`, and `ci-required` all passed. |
+
+This closes the active rollout blocker for same-branch GitHub Actions
+write-back. The historical `403` and later `422`/guard failures remain useful
+comparison baselines, but they no longer block the active `build-workflow@v0.1.32`
+rollout.
+
 ## External Configuration Findings
 
 Collected on 2026-05-07 with GitHub API and workflow evidence:
@@ -171,8 +191,10 @@ confirm both of these conditions:
 2. If that permission was added or upgraded after installation, the
    installation has approved the updated permissions.
 
-If the app is intentionally read-only, the active same-branch write-back
-contract in ADR-0002 cannot succeed and must be superseded instead of widened.
+The active rollout later confirmed these conditions were remediated enough for
+same-branch write-back to succeed on `seerr-helm#5`. If the app is made
+read-only again, the active same-branch write-back contract in ADR-0002 cannot
+succeed and must be superseded instead of widened.
 
 ## What This Confirms
 
@@ -214,7 +236,7 @@ Capture these fields for any repeat failure:
 
 - Related producer hardening baseline supplied with this rollout:
   `f8c3e95`, `e830956`
-- Final documentation sign-off stays blocked by `G4` until this durable note
-  exists and later rollout evidence links back to it.
+- Final documentation sign-off is no longer blocked by `G4`; this durable note
+  now exists and links to later successful rollout evidence.
 - If a canary or follow-on rollout still returns HTTP `403`, stop widening
   consumer propagation and remediate before continuing.
