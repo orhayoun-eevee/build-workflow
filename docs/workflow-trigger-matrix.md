@@ -23,7 +23,7 @@ The GitHub wiki is disabled for this repository. Use this file and
 | `.github/workflows/dependency-review.yaml` | No (direct) | No | No | No | Yes |
 | `.github/workflows/detect-required-checks-tests.yaml` | Yes (`paths` filtered) | Yes (`paths` filtered) | No | No | No |
 | `.github/workflows/renovate-config.yaml` | No | Yes (`paths` filtered) | No | Yes | Yes |
-| `.github/workflows/docker-build.yaml` | No | No | Yes (`tags: v*`) | Yes | No |
+| `.github/workflows/docker-build.yaml` | No | No | Yes (`tags: v*`) | Yes (`workflow_dispatch`, existing semver `v*` ref only) | No |
 | `.github/workflows/helm-validate.yaml` | No (direct) | No (direct) | No (direct) | No | Yes |
 | `.github/workflows/helm-install-smoke.yaml` | No (direct) | No (direct) | No (direct) | No | Yes |
 | `.github/workflows/release-chart.yaml` | No (direct) | No (direct) | No (direct) | No | Yes |
@@ -90,7 +90,7 @@ Why it exists: publish `helm-validate` tool image.
 
 | Job | Runs when | Why |
 |---|---|---|
-| `build-and-push` | Tag push `v*` or manual dispatch against an existing semver tag ref | Release image only on explicit release signal (tag) or intentional manual run on a real release ref. |
+| `build-and-push` | Tag push `v*` or manual dispatch against an existing semver `v*` tag ref | Release image only on governed release refs, and require the `toolchain-release` environment before pushing to GHCR. |
 
 ### 8) Reusable-only workflows
 
@@ -125,7 +125,7 @@ Why it exists: publish `helm-validate` tool image.
 |---|---|
 | Open/update PR to `main` touching workflows/scripts/docker | `pr-required-checks` only as PR entrypoint (with selective child jobs: guardrails/docker-smoke/dependency-review/renovate/codeql), plus `detect-required-checks-tests` if relevant files changed. |
 | Merge PR to `main` | `quality-guardrails`, `codeql`, `detect-required-checks-tests`, `renovate-config` only if each workflow's `push.paths` match changed files. |
-| Push tag like `v0.1.32` | `docker-build` only (unless manually dispatching others). |
+| Push tag like `v0.1.32` | `docker-build` only, gated by `toolchain-release` (unless manually dispatching others). |
 
 ## Best-Practice Notes For Codex Context
 - Keep required PR gating centralized through `pr-required-checks.yaml` + `ci-required` aggregator.

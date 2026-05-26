@@ -466,7 +466,10 @@ wrapper.
 
 **Purpose:** Builds and pushes the `helm-validate` Docker image to GHCR.
 
-**Triggers:** Push to tags matching `v*`, or manual `workflow_dispatch`.
+**Triggers:** Push to tags matching `v*`, or manual `workflow_dispatch` against an existing semver `v*` tag ref.
+
+**Environment gate:** The `build-and-push` job requires the `toolchain-release`
+environment before publishing to GHCR.
 
 Published tags: `X.Y.Z`, `X.Y`, `X`.
 
@@ -626,9 +629,9 @@ docker build -t helm-validate:local -f docker/Dockerfile docker/
 1. Update the version in `docker/Dockerfile`
 2. Rebuild and test: `docker build -t helm-validate:local -f docker/Dockerfile docker/`
 3. Publish flow:
-   - automatic publish on `main` when docker build inputs change
-   - automatic versioned publish on `v*` tag push
-   - optional manual publish via `workflow_dispatch`
+   - automatic versioned publish on `v*` tag push only
+   - optional manual publish via `workflow_dispatch` on an existing semver `v*` tag ref
+   - both publish paths require the `toolchain-release` environment before pushing to GHCR
 
 ---
 
