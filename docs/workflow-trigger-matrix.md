@@ -98,7 +98,7 @@ Why it exists: publish `helm-validate` tool image.
 |---|---|---|
 | `helm-validate.yaml` | `validate` | Only when called by another workflow/repo. |
 | `helm-install-smoke.yaml` | `install-smoke` | Only when called by another workflow/repo; creates a pinned kind cluster and runs `helm install` with the chart's minimal scenario values. |
-| `release-chart.yaml` | `release` | Only when called; expects tag context in caller for version/tag check. |
+| `release-chart.yaml` | `release` | Only when called; expects caller tag context and verifies version tag, `Chart.yaml` equality, tag reachability from `origin/main`, push/pull, and digest-preferred signing. |
 | `pr-required-checks-chart.yaml` | `detect-changes`, `dependency-review`, `validate-*`, `install-smoke-*`, `renovate-config-validation`, `ci-required` | Only when chart repos call it; executes chart-specific required-check orchestration. |
 | `renovate-snapshot-update.yaml` | `update-snapshots` | Only when called in PR context for same-repo `renovate/*` branches from trusted Renovate automation actors; emits no-op or write-back evidence and fails on unexpected non-snapshot diffs or push failures. |
 
