@@ -227,6 +227,11 @@ jobs:
       gh_app_private_key: ${{ secrets.GHCR_AUTO_PKEY }}
 ```
 
+Chart PR wrappers must pass the GitHub App client ID, not the App ID. The
+shared org secret contract is `GHCR_AUTO_CLIENT_ID` plus `GHCR_AUTO_PKEY`;
+reusable workflows scope helper checkout tokens to the minimum repository and
+permission needed by each step.
+
 ### 4. Add a Makefile for local development
 
 Create a `Makefile` in your chart repo:
@@ -349,6 +354,12 @@ make validate         # Run all 5 layers
 | `chart_path` | string | No | `.` | Path to the Helm chart directory |
 | `release_environment` | string | No | `production` | GitHub environment name used for release approvals/policies |
 | `enable_signing` | boolean | No | `true` | Enable keyless OCI signing/attestation |
+
+**Environment policy:** chart repos should pass `release_environment:
+production`, and the environment should be restricted to governed version tags
+before publishing. In this workspace the live `production` environments are
+restricted to `v*` tag deployments under the approved solo-maintainer
+exception.
 
 **How it works:**
 1. Verifies the caller is running from a version tag whose commit is reachable
@@ -476,7 +487,7 @@ wrapper.
 **Environment gate:** The `build-and-push` job requires the `toolchain-release`
 environment before publishing to GHCR.
 
-Published tags: `X.Y.Z`, `X.Y`, `X`.
+Published tags: `X.Y.Z`, `X.Y`, `X`, `vX.Y.Z`, and `latest`.
 
 ---
 
