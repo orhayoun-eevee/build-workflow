@@ -53,7 +53,7 @@ jobs:
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: v0.1.33
+          ref: v0.1.34
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Detect changed paths
@@ -73,7 +73,7 @@ jobs:
     if: github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name == github.repository)
     permissions:
       contents: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.33
+    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.34
 
   validate-app:
     if: inputs.chart_kind == 'app' && needs.detect-changes.outputs.run_validate == 'true'
@@ -81,7 +81,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.33
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.34
     with:
       chart_path: .
       kubernetes_version: '1.30.0'
@@ -105,7 +105,7 @@ jobs:
       - validate-app
     permissions:
       contents: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-install-smoke.yaml@v0.1.33
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-install-smoke.yaml@v0.1.34
     with:
       chart_path: .
       values_file: tests/scenarios/minimal.yaml
@@ -121,7 +121,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.33
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.34
     with:
       chart_path: libChart
       kubernetes_version: '1.30.0'
@@ -143,7 +143,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.33
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.34
     with:
       chart_path: test-chart
       kubernetes_version: '1.30.0'
@@ -167,7 +167,7 @@ jobs:
       - validate-test
     permissions:
       contents: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-install-smoke.yaml@v0.1.33
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-install-smoke.yaml@v0.1.34
     with:
       chart_path: test-chart
       values_file: tests/scenarios/minimal.yaml
@@ -182,7 +182,7 @@ jobs:
     if: needs.detect-changes.outputs.run_renovate_validation == 'true'
     permissions:
       contents: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.33
+    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.34
 
   ci-required:
     name: ci-required
