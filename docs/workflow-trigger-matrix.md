@@ -17,7 +17,7 @@ The GitHub wiki is disabled for this repository. Use this file and
 
 | Workflow | PR to `main` | Merge (`push` to `main`) | New tag (`v*`) | Manual (`workflow_dispatch`) | Reusable (`workflow_call`) |
 |---|---:|---:|---:|---:|---:|
-| `.github/workflows/pr-required-checks.yaml` | Yes (`opened/synchronize/reopened/ready_for_review`, with `paths-ignore`) | No | No | No | No |
+| `.github/workflows/pr-required-checks.yaml` | Yes (`opened/synchronize/reopened/ready_for_review`) | No | No | No | No |
 | `.github/workflows/quality-guardrails.yaml` | No (direct) | Yes (`paths` filtered) | No | No | Yes |
 | `.github/workflows/codeql.yaml` | No (direct) | Yes (`paths` filtered) | No | No | Yes |
 | `.github/workflows/dependency-review.yaml` | No (direct) | No | No | No | Yes |
@@ -47,7 +47,9 @@ Why it exists: single required status (`ci-required`) with path-aware fan-out.
 
 Notes:
 - Also runs on `merge_group` (`checks_requested`) for merge queue safety.
-- `paths-ignore` suppresses PR runs for docs-only/meta-only changes.
+- Docs-only and meta-only PRs still run the aggregate workflow so branch
+  protection receives `ci-required`; path detection skips the expensive child
+  jobs when no validation-relevant files changed.
 - PR fan-out is single-entry via this workflow; reusable child workflows do not self-trigger on PR.
 
 ### 2) `quality-guardrails.yaml`
@@ -103,6 +105,17 @@ Why it exists: publish `helm-validate` tool image.
 | `renovate-snapshot-update.yaml` | `update-snapshots` | Only when called in PR context for same-repo `renovate/*` branches from trusted Renovate automation actors; emits no-op or write-back evidence and fails on unexpected non-snapshot diffs or push failures. |
 
 ## Consumer Caller Contract Notes
+
+### Chart `pr-required-checks.yaml` wrapper
+
+- Secrets contract: the caller passes `GHCR_AUTO_CLIENT_ID` as
+  `gh_app_client_id` and `GHCR_AUTO_PKEY` as `gh_app_private_key`.
+- Token scope contract: helper checkout tokens minted by reusable workflows are
+  scoped to the specific helper or caller repository and requested permission,
+  not the full installation by owner only.
+- Environment contract: tag publish wrappers pass `release_environment:
+  production`; the live workspace policy restricts chart publish environments
+  to governed `v*` tags.
 
 ### App-chart `renovate-snapshot-update.yaml` wrapper
 
