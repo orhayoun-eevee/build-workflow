@@ -351,11 +351,16 @@ make validate         # Run all 5 layers
 | `enable_signing` | boolean | No | `true` | Enable keyless OCI signing/attestation |
 
 **How it works:**
-1. Verifies `Chart.yaml` version matches the git tag
-2. Runs `helm dependency build`
-3. Runs `helm package .`
-4. Pushes to `oci://ghcr.io/<owner>/<chart-name>:<version>`
-5. Signs and attests the OCI artifact when `enable_signing: true`
+1. Verifies the caller is running from a version tag whose commit is reachable
+   from `origin/main`
+2. Verifies `Chart.yaml` version matches the git tag
+3. Runs `helm dependency build`
+4. Runs `helm package .`
+5. Pushes to `oci://ghcr.io/<owner>/<chart-name>:<version>` and captures the
+   OCI digest when Helm reports it
+6. Pulls the published chart back and verifies `helm show chart`
+7. Signs and attests the OCI artifact when `enable_signing: true`, preferring
+   the digest target when available
 
 **Example (consumer repo):**
 

@@ -82,21 +82,54 @@ jobs:
           echo "path=${CHART_PATH}" >> "${GITHUB_OUTPUT}"
           echo "Using chart path: ${CHART_PATH}"
 
-      - name: Verify workflow runs from a tag ref
+      - name: Verify release tag source
+        id: release_source
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_REF}" != refs/tags/* ]]; then
-            echo "ERROR: release-chart must run from a tag ref. Got: ${GITHUB_REF}"
-            echo "Call this workflow from a tag-triggered workflow (e.g. refs/tags/v1.2.3)."
+          if [[ "${GITHUB_REF_TYPE:-}" != "tag" ]]; then
+            echo "ERROR: release-chart must run from a tag ref. Got ref type: ${GITHUB_REF_TYPE:-unset}"
+            echo "Call this workflow from a tag-triggered workflow (for example refs/tags/v1.2.3)."
             exit 1
           fi
+
+          if [[ "${GITHUB_REF}" != refs/tags/* ]]; then
+            echo "ERROR: release-chart must run from a tag ref. Got: ${GITHUB_REF}"
+            echo "Call this workflow from a tag-triggered workflow (for example refs/tags/v1.2.3)."
+            exit 1
+          fi
+
+          git_tag="${GITHUB_REF#refs/tags/}"
+          if [[ ! "${git_tag}" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "ERROR: release-chart tag must be a semver version tag. Got: ${git_tag}"
+            echo "Expected examples: v1.2.3, 1.2.3, v1.2.3-rc.1, v1.2.3+build.1"
+            exit 1
+          fi
+
+          git fetch --no-tags --prune origin +refs/heads/main:refs/remotes/origin/main
+          tag_commit="$(git rev-list -n 1 "refs/tags/${git_tag}")"
+
+          if ! git merge-base --is-ancestor "${tag_commit}" origin/main; then
+            echo "ERROR: release tag commit is not reachable from origin/main."
+            echo "Tag: ${git_tag}"
+            echo "Tag commit: ${tag_commit}"
+            echo "origin/main: $(git rev-parse origin/main)"
+            echo "Publish is blocked until the tagged commit is merged to main."
+            exit 1
+          fi
+
+          {
+            echo "git_tag=${git_tag}"
+            echo "tag_commit=${tag_commit}"
+          } >> "${GITHUB_OUTPUT}"
+
+          echo "Release source verified: ${git_tag} -> ${tag_commit}"
 
       - name: Verify Chart.yaml version matches git tag
         working-directory: ${{ steps.chart_path.outputs.path }}
         run: |
           set -euo pipefail
 
-          GIT_TAG="${GITHUB_REF#refs/tags/}"
+          GIT_TAG="${{ steps.release_source.outputs.git_tag }}"
           if [[ "${GIT_TAG}" =~ ^v[0-9] ]]; then
             TAG_VERSION="${GIT_TAG#v}"
           else
@@ -164,13 +197,25 @@ jobs:
           fi
 
           OCI_REF="ghcr.io/${{ github.repository_owner }}/${CHART_NAME}:${CHART_VERSION}"
+          push_log="$(mktemp)"
           echo "Pushing ${PACKAGE_FILE} to oci://ghcr.io/${{ github.repository_owner }}"
-          helm push "${PACKAGE_FILE}" "oci://ghcr.io/${{ github.repository_owner }}"
+          helm push "${PACKAGE_FILE}" "oci://ghcr.io/${{ github.repository_owner }}" 2>&1 | tee "${push_log}"
+
+          OCI_DIGEST="$(awk 'tolower($1) == "digest:" && $2 ~ /^sha256:/ {print $2; exit}' "${push_log}")"
+          OCI_DIGEST_REF=""
+          if [[ -n "${OCI_DIGEST}" ]]; then
+            OCI_DIGEST_REF="ghcr.io/${{ github.repository_owner }}/${CHART_NAME}@${OCI_DIGEST}"
+            echo "Captured OCI digest: ${OCI_DIGEST}"
+          else
+            echo "::warning::Helm push did not report a digest; signing will fall back to tag target."
+          fi
 
           {
             echo "chart_name=${CHART_NAME}"
             echo "chart_version=${CHART_VERSION}"
             echo "oci_ref=${OCI_REF}"
+            echo "oci_digest=${OCI_DIGEST}"
+            echo "oci_digest_ref=${OCI_DIGEST_REF}"
           } >> "${GITHUB_OUTPUT}"
 
           echo "Successfully published: ${OCI_REF}"
@@ -197,19 +242,34 @@ jobs:
           echo "Successfully verified published chart: ${chart_name}:${chart_version}"
 
       - name: Sign OCI chart artifact (keyless)
+        id: sign
         if: inputs.enable_signing
         env:
           COSIGN_EXPERIMENTAL: '1'
         run: |
           set -euo pipefail
-          cosign sign --yes "${{ steps.publish.outputs.oci_ref }}"
+          sign_target="${{ steps.publish.outputs.oci_digest_ref }}"
+          if [[ -z "${sign_target}" ]]; then
+            sign_target="${{ steps.publish.outputs.oci_ref }}"
+            echo "::warning::Signing by tag because no OCI digest was captured from helm push."
+          fi
+
+          cosign sign --yes "${sign_target}"
+          echo "sign_target=${sign_target}" >> "${GITHUB_OUTPUT}"
 
       - name: Attest OCI chart artifact (keyless)
+        id: attest
         if: inputs.enable_signing
         env:
           COSIGN_EXPERIMENTAL: '1'
         run: |
           set -euo pipefail
+          attest_target="${{ steps.publish.outputs.oci_digest_ref }}"
+          if [[ -z "${attest_target}" ]]; then
+            attest_target="${{ steps.publish.outputs.oci_ref }}"
+            echo "::warning::Attesting by tag because no OCI digest was captured from helm push."
+          fi
+
           BUILD_FINISHED_ON="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
           cat > provenance.json <<JSON
           {
@@ -251,13 +311,24 @@ jobs:
             --yes \
             --predicate provenance.json \
             --type slsaprovenance \
-            "${{ steps.publish.outputs.oci_ref }}"
+            "${attest_target}"
+
+          echo "attest_target=${attest_target}" >> "${GITHUB_OUTPUT}"
 
       - name: Summarize release
         run: |
           {
             echo "## Chart Release"
             echo ""
+            echo "- Chart: \`${{ steps.publish.outputs.chart_name }}\`"
+            echo "- Version: \`${{ steps.publish.outputs.chart_version }}\`"
+            echo "- Tag: \`${{ steps.release_source.outputs.git_tag }}\`"
+            echo "- Tag commit: \`${{ steps.release_source.outputs.tag_commit }}\`"
+            echo "- Workflow SHA: \`${{ github.sha }}\`"
             echo "- OCI ref: \`${{ steps.publish.outputs.oci_ref }}\`"
+            echo "- OCI digest: \`${{ steps.publish.outputs.oci_digest || 'not reported by helm push' }}\`"
             echo "- Signing enabled: \`${{ inputs.enable_signing }}\`"
+            echo "- Signing target: \`${{ steps.sign.outputs.sign_target || 'not signed' }}\`"
+            echo "- Attestation target: \`${{ steps.attest.outputs.attest_target || 'not attested' }}\`"
+            echo "- Run: \`${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\`"
           } >> "${GITHUB_STEP_SUMMARY}"
