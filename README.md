@@ -223,7 +223,7 @@ jobs:
       chart_path: .
       kubernetes_version: "1.30.0"
     secrets:
-      gh_app_id: ${{ secrets.GHCR_AUTO_APP_ID }}
+      gh_app_client_id: ${{ secrets.GHCR_AUTO_CLIENT_ID }}
       gh_app_private_key: ${{ secrets.GHCR_AUTO_PKEY }}
 ```
 
@@ -390,7 +390,7 @@ push only `tests/snapshots/**` changes back to the existing PR branch.
 | `snapshots_dir` | string | No | `tests/snapshots` | Snapshot directory staged and committed by the reusable workflow |
 
 **Required secrets:**
-- `gh_app_id`
+- `gh_app_client_id`
 - `gh_app_private_key`
 
 **Caller wrapper contract:**

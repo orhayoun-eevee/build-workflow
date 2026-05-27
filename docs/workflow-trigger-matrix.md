@@ -1,6 +1,6 @@
 # Build-Workflow Trigger Matrix
 
-Last updated: 2026-05-05
+Last updated: 2026-05-27
 Repository: `orhayoun-eevee/build-workflow`
 
 The GitHub wiki is disabled for this repository. Use this file and
@@ -110,7 +110,7 @@ Why it exists: publish `helm-validate` tool image.
 - Render-input path filter: `Chart.yaml`, `Chart.lock`, `values.yaml`, `templates/**`, `charts/**`, and `tests/scenarios/**`.
 - Deliberate exclusion: `tests/snapshots/**` is excluded so the bot does not retrigger itself after committing refreshed snapshots.
 - Concurrency contract: the caller wrapper and reusable workflow use distinct group prefixes so the reusable run cannot cancel its caller.
-- Secrets contract: the caller passes `GHCR_AUTO_APP_ID` and `GHCR_AUTO_PKEY`; the reusable interface remains `workflow_call` with `snapshots_dir`. The GitHub App token is scoped only to the caller repo for same-branch write-back; the public `build-workflow` checkout does not request app access.
+- Secrets contract: the caller passes `GHCR_AUTO_CLIENT_ID` and `GHCR_AUTO_PKEY`; the reusable interface remains `workflow_call` with `snapshots_dir`. The GitHub App token is scoped only to the caller repo for same-branch write-back; the public `build-workflow` checkout does not request app access.
 - Mutation contract: same-branch GitHub App write-back only. No `GITHUB_TOKEN`, PAT, manual branch update, or second PR fallback is part of the active contract.
 - Evidence contract: every run summarizes repo, PR number, PR head ref, pre-write PR head SHA, `build-workflow` ref, result, changed snapshot file count, and pushed commit SHA. Push failures also capture current ref, target ref, `git status`, snapshot diff scope, and sanitized push stderr.
 - Validation scope: snapshot refresh proves render drift only. Install-time smoke is enforced separately by `pr-required-checks-chart.yaml` through `helm-install-smoke.yaml`.
