@@ -62,8 +62,8 @@ on:
         type: string
         default: ''
     secrets:
-      gh_app_id:
-        description: 'GitHub App ID for minting installation token'
+      gh_app_client_id:
+        description: 'GitHub App client ID for minting installation token'
         required: true
       gh_app_private_key:
         description: 'GitHub App private key for minting installation token'
@@ -100,9 +100,11 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ secrets.gh_app_id }}
+          client-id: ${{ secrets.gh_app_client_id }}
           private-key: ${{ secrets.gh_app_private_key }}
           owner: ${{ github.repository_owner }}
+          repositories: build-workflow
+          permission-contents: read
 
       - name: Checkout build-workflow (validation framework)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
