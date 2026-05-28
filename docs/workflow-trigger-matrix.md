@@ -1,6 +1,6 @@
 # Build-Workflow Trigger Matrix
 
-Last updated: 2026-05-27
+Last updated: 2026-05-28
 Repository: `orhayoun-eevee/build-workflow`
 
 The GitHub wiki is disabled for this repository. Use this file and
@@ -110,6 +110,11 @@ Why it exists: publish `helm-validate` tool image.
 
 - Secrets contract: the caller passes `GHCR_AUTO_CLIENT_ID` as
   `gh_app_client_id` and `GHCR_AUTO_PKEY` as `gh_app_private_key`.
+- Required-check trigger contract: chart wrappers must not use
+  `pull_request.paths-ignore`. Branch protection needs the required
+  `ci-required` status on every PR, including docs-only PRs; path-aware
+  short-circuiting belongs in `pr-required-checks-chart.yaml` through
+  `scripts/detect-required-checks.sh`.
 - Token scope contract: helper checkout tokens minted by reusable workflows are
   scoped to the specific helper or caller repository and requested permission,
   not the full installation by owner only.
@@ -138,7 +143,7 @@ Why it exists: publish `helm-validate` tool image.
 |---|---|
 | Open/update PR to `main` touching workflows/scripts/docker | `pr-required-checks` only as PR entrypoint (with selective child jobs: guardrails/docker-smoke/dependency-review/renovate/codeql), plus `detect-required-checks-tests` if relevant files changed. |
 | Merge PR to `main` | `quality-guardrails`, `codeql`, `detect-required-checks-tests`, `renovate-config` only if each workflow's `push.paths` match changed files. |
-| Push tag like `v0.1.34` | `docker-build` only, gated by `toolchain-release` (unless manually dispatching others). |
+| Push tag like `v0.1.35` | `docker-build` only, gated by `toolchain-release` (unless manually dispatching others). |
 
 ## Best-Practice Notes For Codex Context
 - Keep required PR gating centralized through `pr-required-checks.yaml` + `ci-required` aggregator.
