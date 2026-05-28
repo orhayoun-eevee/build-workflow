@@ -22,7 +22,7 @@ permissions:
 
 env:
   BUILD_WORKFLOW_REPOSITORY: orhayoun-eevee/build-workflow
-  BUILD_WORKFLOW_REF: v0.1.34
+  BUILD_WORKFLOW_REF: v0.1.35
 
 concurrency:
   group: reusable-renovate-snapshot-update-${{ github.workflow }}-${{ github.ref }}
