@@ -235,6 +235,18 @@ EOF
 	assert_not_contains "${rendered_wrapper}" "    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-snapshot-update.yaml@__BUILD_WORKFLOW_REF__"
 	assert_not_contains "${rendered_wrapper}" "__BUILD_WORKFLOW_REF__"
 	assert_contains "${rendered_wrapper}" "  group: caller-renovate-snapshot-update-\${{ github.workflow }}-\${{ github.ref }}"
+	assert_contains "${rendered_wrapper}" "      gh_app_client_id: \${{ secrets.GHCR_AUTO_CLIENT_ID }}"
+	assert_not_contains "${rendered_wrapper}" "      gh_app_id: \${{ secrets.GHCR_AUTO_APP_ID }}"
+
+	rendered_required_wrapper="${workspace}/jellyfin-helm/.github/workflows/pr-required-checks.yaml"
+	assert_contains "${rendered_required_wrapper}" "      gh_app_client_id: \${{ secrets.GHCR_AUTO_CLIENT_ID }}"
+	assert_not_contains "${rendered_required_wrapper}" "      gh_app_id: \${{ secrets.GHCR_AUTO_APP_ID }}"
+	assert_not_contains "${rendered_required_wrapper}" "    paths-ignore:"
+
+	rendered_lib_required_wrapper="${workspace}/helm-common-lib/.github/workflows/pr-required-checks.yaml"
+	assert_contains "${rendered_lib_required_wrapper}" "      gh_app_client_id: \${{ secrets.GHCR_AUTO_CLIENT_ID }}"
+	assert_not_contains "${rendered_lib_required_wrapper}" "      gh_app_id: \${{ secrets.GHCR_AUTO_APP_ID }}"
+	assert_not_contains "${rendered_lib_required_wrapper}" "    paths-ignore:"
 )
 
 echo "detect-required-checks tests passed"

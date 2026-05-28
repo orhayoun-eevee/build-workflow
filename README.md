@@ -223,9 +223,14 @@ jobs:
       chart_path: .
       kubernetes_version: "1.30.0"
     secrets:
-      gh_app_id: ${{ secrets.GHCR_AUTO_APP_ID }}
+      gh_app_client_id: ${{ secrets.GHCR_AUTO_CLIENT_ID }}
       gh_app_private_key: ${{ secrets.GHCR_AUTO_PKEY }}
 ```
+
+Chart PR wrappers must pass the GitHub App client ID, not the App ID. The
+shared org secret contract is `GHCR_AUTO_CLIENT_ID` plus `GHCR_AUTO_PKEY`;
+reusable workflows scope helper checkout tokens to the minimum repository and
+permission needed by each step.
 
 ### 4. Add a Makefile for local development
 
@@ -350,12 +355,23 @@ make validate         # Run all 5 layers
 | `release_environment` | string | No | `production` | GitHub environment name used for release approvals/policies |
 | `enable_signing` | boolean | No | `true` | Enable keyless OCI signing/attestation |
 
+**Environment policy:** chart repos should pass `release_environment:
+production`, and the environment should be restricted to governed version tags
+before publishing. In this workspace the live `production` environments are
+restricted to `v*` tag deployments under the approved solo-maintainer
+exception.
+
 **How it works:**
-1. Verifies `Chart.yaml` version matches the git tag
-2. Runs `helm dependency build`
-3. Runs `helm package .`
-4. Pushes to `oci://ghcr.io/<owner>/<chart-name>:<version>`
-5. Signs and attests the OCI artifact when `enable_signing: true`
+1. Verifies the caller is running from a version tag whose commit is reachable
+   from `origin/main`
+2. Verifies `Chart.yaml` version matches the git tag
+3. Runs `helm dependency build`
+4. Runs `helm package .`
+5. Pushes to `oci://ghcr.io/<owner>/<chart-name>:<version>` and captures the
+   OCI digest when Helm reports it
+6. Pulls the published chart back and verifies `helm show chart`
+7. Signs and attests the OCI artifact when `enable_signing: true`, preferring
+   the digest target when available
 
 **Example (consumer repo):**
 
@@ -390,7 +406,7 @@ push only `tests/snapshots/**` changes back to the existing PR branch.
 | `snapshots_dir` | string | No | `tests/snapshots` | Snapshot directory staged and committed by the reusable workflow |
 
 **Required secrets:**
-- `gh_app_id`
+- `gh_app_client_id`
 - `gh_app_private_key`
 
 **Caller wrapper contract:**
@@ -466,9 +482,12 @@ wrapper.
 
 **Purpose:** Builds and pushes the `helm-validate` Docker image to GHCR.
 
-**Triggers:** Push to tags matching `v*`, or manual `workflow_dispatch`.
+**Triggers:** Push to tags matching `v*`, or manual `workflow_dispatch` against an existing semver `v*` tag ref.
 
-Published tags: `X.Y.Z`, `X.Y`, `X`.
+**Environment gate:** The `build-and-push` job requires the `toolchain-release`
+environment before publishing to GHCR.
+
+Published tags: `X.Y.Z`, `X.Y`, `X`, `vX.Y.Z`, and `latest`.
 
 ---
 
@@ -626,9 +645,9 @@ docker build -t helm-validate:local -f docker/Dockerfile docker/
 1. Update the version in `docker/Dockerfile`
 2. Rebuild and test: `docker build -t helm-validate:local -f docker/Dockerfile docker/`
 3. Publish flow:
-   - automatic publish on `main` when docker build inputs change
-   - automatic versioned publish on `v*` tag push
-   - optional manual publish via `workflow_dispatch`
+   - automatic versioned publish on `v*` tag push only
+   - optional manual publish via `workflow_dispatch` on an existing semver `v*` tag ref
+   - both publish paths require the `toolchain-release` environment before pushing to GHCR
 
 ---
 

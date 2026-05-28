@@ -9,13 +9,6 @@ on:
       - ready_for_review
     branches:
       - main
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - 'AGENTS.md'
-      - '.gitignore'
-      - '.editorconfig'
-      - 'LICENSE'
   merge_group:
     types:
       - checks_requested
@@ -37,5 +30,5 @@ jobs:
     with:
       chart_kind: lib
     secrets:
-      gh_app_id: ${{ secrets.GHCR_AUTO_APP_ID }}
+      gh_app_client_id: ${{ secrets.GHCR_AUTO_CLIENT_ID }}
       gh_app_private_key: ${{ secrets.GHCR_AUTO_PKEY }}

@@ -1,6 +1,6 @@
 # Build-Workflow Trigger Matrix
 
-Last updated: 2026-05-05
+Last updated: 2026-05-28
 Repository: `orhayoun-eevee/build-workflow`
 
 The GitHub wiki is disabled for this repository. Use this file and
@@ -17,13 +17,13 @@ The GitHub wiki is disabled for this repository. Use this file and
 
 | Workflow | PR to `main` | Merge (`push` to `main`) | New tag (`v*`) | Manual (`workflow_dispatch`) | Reusable (`workflow_call`) |
 |---|---:|---:|---:|---:|---:|
-| `.github/workflows/pr-required-checks.yaml` | Yes (`opened/synchronize/reopened/ready_for_review`, with `paths-ignore`) | No | No | No | No |
+| `.github/workflows/pr-required-checks.yaml` | Yes (`opened/synchronize/reopened/ready_for_review`) | No | No | No | No |
 | `.github/workflows/quality-guardrails.yaml` | No (direct) | Yes (`paths` filtered) | No | No | Yes |
 | `.github/workflows/codeql.yaml` | No (direct) | Yes (`paths` filtered) | No | No | Yes |
 | `.github/workflows/dependency-review.yaml` | No (direct) | No | No | No | Yes |
 | `.github/workflows/detect-required-checks-tests.yaml` | Yes (`paths` filtered) | Yes (`paths` filtered) | No | No | No |
 | `.github/workflows/renovate-config.yaml` | No | Yes (`paths` filtered) | No | Yes | Yes |
-| `.github/workflows/docker-build.yaml` | No | No | Yes (`tags: v*`) | Yes | No |
+| `.github/workflows/docker-build.yaml` | No | No | Yes (`tags: v*`) | Yes (`workflow_dispatch`, existing semver `v*` ref only) | No |
 | `.github/workflows/helm-validate.yaml` | No (direct) | No (direct) | No (direct) | No | Yes |
 | `.github/workflows/helm-install-smoke.yaml` | No (direct) | No (direct) | No (direct) | No | Yes |
 | `.github/workflows/release-chart.yaml` | No (direct) | No (direct) | No (direct) | No | Yes |
@@ -47,7 +47,9 @@ Why it exists: single required status (`ci-required`) with path-aware fan-out.
 
 Notes:
 - Also runs on `merge_group` (`checks_requested`) for merge queue safety.
-- `paths-ignore` suppresses PR runs for docs-only/meta-only changes.
+- Docs-only and meta-only PRs still run the aggregate workflow so branch
+  protection receives `ci-required`; path detection skips the expensive child
+  jobs when no validation-relevant files changed.
 - PR fan-out is single-entry via this workflow; reusable child workflows do not self-trigger on PR.
 
 ### 2) `quality-guardrails.yaml`
@@ -90,7 +92,7 @@ Why it exists: publish `helm-validate` tool image.
 
 | Job | Runs when | Why |
 |---|---|---|
-| `build-and-push` | Tag push `v*` or manual dispatch against an existing semver tag ref | Release image only on explicit release signal (tag) or intentional manual run on a real release ref. |
+| `build-and-push` | Tag push `v*` or manual dispatch against an existing semver `v*` tag ref | Release image only on governed release refs, and require the `toolchain-release` environment before pushing to GHCR. |
 
 ### 8) Reusable-only workflows
 
@@ -98,11 +100,27 @@ Why it exists: publish `helm-validate` tool image.
 |---|---|---|
 | `helm-validate.yaml` | `validate` | Only when called by another workflow/repo. |
 | `helm-install-smoke.yaml` | `install-smoke` | Only when called by another workflow/repo; creates a pinned kind cluster and runs `helm install` with the chart's minimal scenario values. |
-| `release-chart.yaml` | `release` | Only when called; expects tag context in caller for version/tag check. |
+| `release-chart.yaml` | `release` | Only when called; expects caller tag context and verifies version tag, `Chart.yaml` equality, tag reachability from `origin/main`, push/pull, and digest-preferred signing. |
 | `pr-required-checks-chart.yaml` | `detect-changes`, `dependency-review`, `validate-*`, `install-smoke-*`, `renovate-config-validation`, `ci-required` | Only when chart repos call it; executes chart-specific required-check orchestration. |
 | `renovate-snapshot-update.yaml` | `update-snapshots` | Only when called in PR context for same-repo `renovate/*` branches from trusted Renovate automation actors; emits no-op or write-back evidence and fails on unexpected non-snapshot diffs or push failures. |
 
 ## Consumer Caller Contract Notes
+
+### Chart `pr-required-checks.yaml` wrapper
+
+- Secrets contract: the caller passes `GHCR_AUTO_CLIENT_ID` as
+  `gh_app_client_id` and `GHCR_AUTO_PKEY` as `gh_app_private_key`.
+- Required-check trigger contract: chart wrappers must not use
+  `pull_request.paths-ignore`. Branch protection needs the required
+  `ci-required` status on every PR, including docs-only PRs; path-aware
+  short-circuiting belongs in `pr-required-checks-chart.yaml` through
+  `scripts/detect-required-checks.sh`.
+- Token scope contract: helper checkout tokens minted by reusable workflows are
+  scoped to the specific helper or caller repository and requested permission,
+  not the full installation by owner only.
+- Environment contract: tag publish wrappers pass `release_environment:
+  production`; the live workspace policy restricts chart publish environments
+  to governed `v*` tags.
 
 ### App-chart `renovate-snapshot-update.yaml` wrapper
 
@@ -110,7 +128,7 @@ Why it exists: publish `helm-validate` tool image.
 - Render-input path filter: `Chart.yaml`, `Chart.lock`, `values.yaml`, `templates/**`, `charts/**`, and `tests/scenarios/**`.
 - Deliberate exclusion: `tests/snapshots/**` is excluded so the bot does not retrigger itself after committing refreshed snapshots.
 - Concurrency contract: the caller wrapper and reusable workflow use distinct group prefixes so the reusable run cannot cancel its caller.
-- Secrets contract: the caller passes `GHCR_AUTO_APP_ID` and `GHCR_AUTO_PKEY`; the reusable interface remains `workflow_call` with `snapshots_dir`. The GitHub App token is scoped only to the caller repo for same-branch write-back; the public `build-workflow` checkout does not request app access.
+- Secrets contract: the caller passes `GHCR_AUTO_CLIENT_ID` and `GHCR_AUTO_PKEY`; the reusable interface remains `workflow_call` with `snapshots_dir`. The GitHub App token is scoped only to the caller repo for same-branch write-back; the public `build-workflow` checkout does not request app access.
 - Mutation contract: same-branch GitHub App write-back only. No `GITHUB_TOKEN`, PAT, manual branch update, or second PR fallback is part of the active contract.
 - Evidence contract: every run summarizes repo, PR number, PR head ref, pre-write PR head SHA, `build-workflow` ref, result, changed snapshot file count, and pushed commit SHA. Push failures also capture current ref, target ref, `git status`, snapshot diff scope, and sanitized push stderr.
 - Validation scope: snapshot refresh proves render drift only. Install-time smoke is enforced separately by `pr-required-checks-chart.yaml` through `helm-install-smoke.yaml`.
@@ -125,7 +143,7 @@ Why it exists: publish `helm-validate` tool image.
 |---|---|
 | Open/update PR to `main` touching workflows/scripts/docker | `pr-required-checks` only as PR entrypoint (with selective child jobs: guardrails/docker-smoke/dependency-review/renovate/codeql), plus `detect-required-checks-tests` if relevant files changed. |
 | Merge PR to `main` | `quality-guardrails`, `codeql`, `detect-required-checks-tests`, `renovate-config` only if each workflow's `push.paths` match changed files. |
-| Push tag like `v0.1.32` | `docker-build` only (unless manually dispatching others). |
+| Push tag like `v0.1.35` | `docker-build` only, gated by `toolchain-release` (unless manually dispatching others). |
 
 ## Best-Practice Notes For Codex Context
 - Keep required PR gating centralized through `pr-required-checks.yaml` + `ci-required` aggregator.

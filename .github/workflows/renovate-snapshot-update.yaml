@@ -9,8 +9,8 @@ on:
         type: string
         default: 'tests/snapshots'
     secrets:
-      gh_app_id:
-        description: 'GitHub App ID for minting installation token'
+      gh_app_client_id:
+        description: 'GitHub App client ID for minting installation token'
         required: true
       gh_app_private_key:
         description: 'GitHub App private key for minting installation token'
@@ -22,7 +22,7 @@ permissions:
 
 env:
   BUILD_WORKFLOW_REPOSITORY: orhayoun-eevee/build-workflow
-  BUILD_WORKFLOW_REF: v0.1.32
+  BUILD_WORKFLOW_REF: v0.1.35
 
 concurrency:
   group: reusable-renovate-snapshot-update-${{ github.workflow }}-${{ github.ref }}
@@ -37,9 +37,9 @@ jobs:
     steps:
       - name: Create GitHub App token
         id: app-token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ secrets.gh_app_id }}
+          client-id: ${{ secrets.gh_app_client_id }}
           private-key: ${{ secrets.gh_app_private_key }}
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.pull_request.head.repo.name }}

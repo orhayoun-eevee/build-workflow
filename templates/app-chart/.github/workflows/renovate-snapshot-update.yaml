@@ -29,5 +29,5 @@ jobs:
     with:
       snapshots_dir: tests/snapshots
     secrets:
-      gh_app_id: ${{ secrets.GHCR_AUTO_APP_ID }}
+      gh_app_client_id: ${{ secrets.GHCR_AUTO_CLIENT_ID }}
       gh_app_private_key: ${{ secrets.GHCR_AUTO_PKEY }}

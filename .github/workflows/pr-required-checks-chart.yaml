@@ -8,8 +8,8 @@ on:
         required: true
         type: string
     secrets:
-      gh_app_id:
-        description: 'GitHub App ID for minting installation token'
+      gh_app_client_id:
+        description: 'GitHub App client ID for minting installation token'
         required: true
       gh_app_private_key:
         description: 'GitHub App private key for minting installation token'
@@ -40,18 +40,20 @@ jobs:
 
       - name: Mint app token for helper checkout
         id: app-token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
-          app-id: ${{ secrets.gh_app_id }}
+          client-id: ${{ secrets.gh_app_client_id }}
           private-key: ${{ secrets.gh_app_private_key }}
           owner: ${{ github.repository_owner }}
+          repositories: build-workflow
+          permission-contents: read
 
       - name: Checkout build-workflow helpers
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: orhayoun-eevee/build-workflow
           path: .build-workflow
-          ref: v0.1.32
+          ref: v0.1.35
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Detect changed paths
@@ -71,7 +73,7 @@ jobs:
     if: github.event_name == 'pull_request' && (github.event.pull_request.head.repo.full_name == github.repository)
     permissions:
       contents: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.32
+    uses: orhayoun-eevee/build-workflow/.github/workflows/dependency-review.yaml@v0.1.35
 
   validate-app:
     if: inputs.chart_kind == 'app' && needs.detect-changes.outputs.run_validate == 'true'
@@ -79,7 +81,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.32
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.35
     with:
       chart_path: .
       kubernetes_version: '1.30.0'
@@ -93,7 +95,7 @@ jobs:
       target_branch: main
       run_version_check: true
     secrets:
-      gh_app_id: ${{ secrets.gh_app_id }}
+      gh_app_client_id: ${{ secrets.gh_app_client_id }}
       gh_app_private_key: ${{ secrets.gh_app_private_key }}
 
   install-smoke-app:
@@ -103,14 +105,14 @@ jobs:
       - validate-app
     permissions:
       contents: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-install-smoke.yaml@v0.1.32
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-install-smoke.yaml@v0.1.35
     with:
       chart_path: .
       values_file: tests/scenarios/minimal.yaml
       kubernetes_version: '1.30.0'
       kind_node_image: 'kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e'
     secrets:
-      gh_app_id: ${{ secrets.gh_app_id }}
+      gh_app_client_id: ${{ secrets.gh_app_client_id }}
       gh_app_private_key: ${{ secrets.gh_app_private_key }}
 
   validate-lib:
@@ -119,7 +121,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.32
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.35
     with:
       chart_path: libChart
       kubernetes_version: '1.30.0'
@@ -130,7 +132,7 @@ jobs:
       run_policy: false
       run_version_check: true
     secrets:
-      gh_app_id: ${{ secrets.gh_app_id }}
+      gh_app_client_id: ${{ secrets.gh_app_client_id }}
       gh_app_private_key: ${{ secrets.gh_app_private_key }}
 
   validate-test:
@@ -141,7 +143,7 @@ jobs:
     permissions:
       contents: read
       packages: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.32
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-validate.yaml@v0.1.35
     with:
       chart_path: test-chart
       kubernetes_version: '1.30.0'
@@ -155,7 +157,7 @@ jobs:
       target_branch: main
       run_version_check: false
     secrets:
-      gh_app_id: ${{ secrets.gh_app_id }}
+      gh_app_client_id: ${{ secrets.gh_app_client_id }}
       gh_app_private_key: ${{ secrets.gh_app_private_key }}
 
   install-smoke-lib:
@@ -165,14 +167,14 @@ jobs:
       - validate-test
     permissions:
       contents: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-install-smoke.yaml@v0.1.32
+    uses: orhayoun-eevee/build-workflow/.github/workflows/helm-install-smoke.yaml@v0.1.35
     with:
       chart_path: test-chart
       values_file: tests/scenarios/minimal.yaml
       kubernetes_version: '1.30.0'
       kind_node_image: 'kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e'
     secrets:
-      gh_app_id: ${{ secrets.gh_app_id }}
+      gh_app_client_id: ${{ secrets.gh_app_client_id }}
       gh_app_private_key: ${{ secrets.gh_app_private_key }}
 
   renovate-config-validation:
@@ -180,7 +182,7 @@ jobs:
     if: needs.detect-changes.outputs.run_renovate_validation == 'true'
     permissions:
       contents: read
-    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.32
+    uses: orhayoun-eevee/build-workflow/.github/workflows/renovate-config.yaml@v0.1.35
 
   ci-required:
     name: ci-required
